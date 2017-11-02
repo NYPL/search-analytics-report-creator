@@ -1,5 +1,7 @@
 # Search Analytics Reporting Export
 
+[![Build Status](https://travis-ci.org/NYPL/search-analytics-report-creator.svg?branch=master)](https://travis-ci.org/NYPL/search-analytics-report-creator)
+
 This application generates reports of our click & search events.
 It can be given an arbitrary start and end date.
 

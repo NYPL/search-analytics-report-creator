@@ -58,17 +58,17 @@ class SearchTermByRepoAndSearchedFrom
         all_clicks_for_this = clicks.find_all { |click| click.search_term == query_term }
         all_clicks_for_this.group_by(&:searched_repo).each do |searched_repo, click_events|
           click_events.each do |click_event|
-              row = []
-              row << query_term
-              row << click_event.searched_repo
-              row << click_event.searched_from
+            row = []
+            row << query_term
+            row << click_event.searched_repo
+            row << click_event.searched_from
 
-              matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == click_event.searched_from && query.searched_repo == click_event.searched_repo }
-              row << matching_query_event.total_events
-              row << click_event.total_events
-              row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
-              row << '%.2f' % click_event.mean_ordinality
-              csv << row
+            matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == click_event.searched_from && query.searched_repo == click_event.searched_repo }
+            row << matching_query_event.total_events
+            row << click_event.total_events
+            row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
+            row << '%.2f' % click_event.mean_ordinality
+            csv << row
           end
 
           sum_for_searched_repo_row = []
@@ -97,6 +97,6 @@ class SearchTermByRepoAndSearchedFrom
           csv << sum_for_searched_repo_row
         end
       end
-end
-end
+    end
+  end
 end

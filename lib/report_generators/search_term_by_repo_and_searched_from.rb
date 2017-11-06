@@ -50,25 +50,29 @@ class SearchTermByRepoAndSearchedFrom
     output_file_path = File.join(File.absolute_path(@output), "output_#{@start_date}_#{@end_date}.csv")
 
     CSV.open(output_file_path, 'wb') do |csv|
-      headers = ['Search Term', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'Mean Ordinality']
+      headers = ['Search Term', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
       csv << headers
 
       all_query_terms = queries.map(&:search_term).uniq
       all_query_terms.each do |query_term|
-        all_clicks_for_this = clicks.find_all { |click| click.search_term == query_term }
-        all_clicks_for_this.group_by(&:searched_repo).each do |searched_repo, click_events|
-          click_events.each do |click_event|
-              row = []
-              row << query_term
-              row << click_event.searched_repo
-              row << click_event.searched_from
 
-              matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == click_event.searched_from && query.searched_repo == click_event.searched_repo }
-              row << matching_query_event.total_events
-              row << click_event.total_events
-              row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
-              row << '%.2f' % click_event.mean_ordinality
-              csv << row
+        all_queries_for_this = queries.find { |query| query.search_term == query_term }
+        all_clicks_for_this = clicks.find_all { |click| click.search_term == query_term }
+
+        # Calculate data for the per repo rows
+        all_clicks_for_this.group_by(&:searched_repo).each do |searched_repo, click_events_by_from|
+          click_events_by_from.each do |clicks_from|
+            row = []
+            row << query_term
+            row << clicks_from.searched_repo
+            row << clicks_from.searched_from
+
+            matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == clicks_from.searched_from && query.searched_repo == clicks_from.searched_repo }
+            row << matching_query_event.total_events
+            row << clicks_from.total_events
+            row << '%.2f' % ((clicks_from.total_events.to_f / matching_query_event.total_events) * 100)
+            row << '%.2f' % clicks_from.mean_ordinality
+            csv << row
           end
 
           sum_for_searched_repo_row = []
@@ -77,26 +81,96 @@ class SearchTermByRepoAndSearchedFrom
           sum_for_searched_repo_row << "ALL"
 
 
-          all_queries_for_this = queries.find_all {|query| query.search_term == query_term && query.searched_repo == searched_repo}
+          all_queries_for_searched_repo = queries.find_all { |query| 
+            query.search_term == query_term && query.searched_repo == searched_repo}
 
           # Total searches
-          total_searches = all_queries_for_this.inject(0) {|sum, query| sum + query.total_events }
+          total_searches = all_queries_for_searched_repo.inject(0) { |sum, query| 
+            sum + query.total_events 
+          }
           sum_for_searched_repo_row << total_searches
 
           # Total clicks
-          total_clicks = click_events.inject(0) {|sum, click| sum + click.total_events }
+          total_clicks = click_events_by_from.inject(0) {|sum, click| sum + click.total_events }
           sum_for_searched_repo_row << total_clicks
 
           # CTR
           sum_for_searched_repo_row << '%.2f' % ((total_clicks.to_f / total_searches) * 100)
 
           # Mean Ordinality
-          all_ordinality = (click_events.inject(0) {|sum, click| sum + click.mean_ordinality }.to_f) / click_events.length
+          all_ordinality = (click_events_by_from.inject(0) {|sum, click| sum + click.mean_ordinality }.to_f) / click_events_by_from.length
           sum_for_searched_repo_row << ('%.2f' % (all_ordinality))
 
           csv << sum_for_searched_repo_row
         end
+
+        # Calculate data for the searched from rows
+        all_clicks_for_this.group_by(&:searched_from).each do |searched_from, click_events_by_repo|
+          click_events_by_repo.each do |repo_clicks|
+            row = []
+            row << query_term
+            row << repo_clicks.searched_repo
+            row << repo_clicks.searched_from
+
+            matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == repo_clicks.searched_from && query.searched_repo == repo_clicks.searched_repo }
+            row << matching_query_event.total_events
+            row << repo_clicks.total_events
+            row << '%.2f' % ((repo_clicks.total_events.to_f / matching_query_event.total_events) * 100)
+            row << '%.2f' % repo_clicks.mean_ordinality
+            csv << row
+          end
+
+          sum_for_searched_from_row = []
+          sum_for_searched_from_row << query_term
+          sum_for_searched_from_row << "ALL"
+          sum_for_searched_from_row << searched_from
+
+
+          all_queries_for_searched_from = queries.find_all {|query| query.search_term == query_term && query.searched_from == searched_from}
+
+          # Total searches
+          total_searches = all_queries_for_searched_from.inject(0) { |sum, queries| 
+            sum + queries.total_events 
+          }
+          sum_for_searched_from_row << total_searches
+
+          # Total clicks
+          total_clicks = click_events_by_from.inject(0) {|sum, clicks| sum + clicks.total_events }
+          sum_for_searched_from_row << total_clicks
+
+          # CTR
+          sum_for_searched_from_row << '%.2f' % ((total_clicks.to_f / total_searches) * 100)
+
+          # Mean Ordinality
+          all_ordinality = (click_events_by_from.inject(0) {|sum, click| sum + click.mean_ordinality }.to_f) / click_events_by_from.length
+          sum_for_searched_from_row << ('%.2f' % (all_ordinality))
+
+          csv << sum_for_searched_from_row
+        end
+
+        sum_for_term_row = []
+
+        sum_for_term_row << query_term
+        sum_for_term_row << "ALL"
+        sum_for_term_row << "ALL"
+
+        total_queries = all_queries_for_this.inject(0) { |sum, queries_per_segment| 
+          sum + queries_per_segment.total_events
+        }
+        sum_for_term_row << total_queries
+
+        total_clicks = all_clicks_for_this.inject(0) { |sum, clicks_per_segment|
+          sum + clicks_per_segment.total_events
+        }
+        sum_for_term_row << total_clicks
+
+        sum_for_term_row << '%.2f' % ((total_clicks.to_f / total_queries) * 100)
+
+        # TODO — don't think this is right
+        all_ordinality = (click_events_by_from.inject(0) {|sum, click| sum + click.mean_ordinali
+ty }.to_f) / click_events_by_from.length
+
       end
-end
-end
+    end
+  end
 end

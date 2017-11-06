@@ -35,14 +35,19 @@ USAGE: ruby ./script/create_analytics_reports.rb [options]
 
 Example: `ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o ~/Desktop/`
 
-## Building For Deployment
+## Docker
+
+### Building
+
 Please use `--no-cache` flag to build Docker image.
 
-```docker build --no-cache .```
+`docker build --no-cache .`
+
+### Running locally from built docker image
 
 And use `--env-file` flag to run Docker image with corresponding environment variable file.
 
-```docker run --env-file config/.env.sample [name-or-id-of-docker-image]```
+`docker run --env-file config/.env.sample [name-or-id-of-docker-image]`
 
 
 ## Deploying

@@ -1,6 +1,7 @@
 require 'google/apis/drive_v2'
 require 'googleauth'
 require 'google/apis/analytics_v3'
+require 'date'
 
 class SearchTermByRepoAndSearchedFrom
 
@@ -14,7 +15,14 @@ class SearchTermByRepoAndSearchedFrom
   end
 
   def report_basename
-    "output_#{@start_date}_#{@end_date}.csv"
+    mapping = {
+      'today'     =>  Date.today.strftime(),
+      'yesterday' =>  (Date.today - 1).strftime()
+    }
+    real_start_date = mapping[@start_date] || @start_date
+    real_end_date   = mapping[@end_date] || @end_date
+
+    "output_#{real_start_date}_#{real_end_date}.csv"
   end
 
   def report_output_path
@@ -112,6 +120,7 @@ class SearchTermByRepoAndSearchedFrom
     if @output == "google-sheets"
       upload_to_drive
     end
+
   end
 
   def upload_to_drive

@@ -58,17 +58,17 @@ class SearchTermByRepoAndSearchedFrom
         all_clicks_for_this = clicks.find_all { |click| click.search_term == query_term }
         all_clicks_for_this.group_by(&:searched_repo).each do |searched_repo, click_events|
           click_events.each do |click_event|
-              row = []
-              row << query_term
-              row << click_event.searched_repo
-              row << click_event.searched_from
+            row = []
+            row << query_term
+            row << click_event.searched_repo
+            row << click_event.searched_from
 
-              matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == click_event.searched_from && query.searched_repo == click_event.searched_repo }
-              row << matching_query_event.total_events
-              row << click_event.total_events
-              row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
-              row << '%.2f' % click_event.mean_ordinality
-              csv << row
+            matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == click_event.searched_from && query.searched_repo == click_event.searched_repo }
+            row << matching_query_event.total_events
+            row << click_event.total_events
+            row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
+            row << '%.2f' % click_event.mean_ordinality
+            csv << row
           end
 
           sum_for_searched_repo_row = []
@@ -91,12 +91,21 @@ class SearchTermByRepoAndSearchedFrom
           sum_for_searched_repo_row << '%.2f' % ((total_clicks.to_f / total_searches) * 100)
 
           # Mean Ordinality
-          all_ordinality = (click_events.inject(0) {|sum, click| sum + click.mean_ordinality }.to_f) / click_events.length
-          sum_for_searched_repo_row << ('%.2f' % (all_ordinality))
+          sum_for_searched_repo_row << ('%.2f' % (mean_ordinality_over_segments(click_events)))
 
           csv << sum_for_searched_repo_row
         end
       end
-end
-end
+    end
+  end
+
+  def mean_ordinality_over_segments(clickthrough_segments)
+      ordinality_fraction = clickthrough_segments.inject({ordinality_total: 0, click_total: 0}) do |sum, click|
+        sum[:ordinality_total] += click.mean_ordinality * click.total_events
+        sum[:click_total] += click.total_events
+        sum
+      end
+
+      ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total]
+  end
 end

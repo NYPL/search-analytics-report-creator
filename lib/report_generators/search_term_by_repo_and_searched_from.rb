@@ -91,12 +91,21 @@ class SearchTermByRepoAndSearchedFrom
           sum_for_searched_repo_row << '%.2f' % ((total_clicks.to_f / total_searches) * 100)
 
           # Mean Ordinality
-          all_ordinality = (click_events.inject(0) {|sum, click| sum + click.mean_ordinality }.to_f) / click_events.length
-          sum_for_searched_repo_row << ('%.2f' % (all_ordinality))
+          sum_for_searched_repo_row << ('%.2f' % (mean_ordinality_over_segments(click_events)))
 
           csv << sum_for_searched_repo_row
         end
       end
     end
+  end
+
+  def mean_ordinality_over_segments(clickthrough_segments)
+      ordinality_fraction = clickthrough_segments.inject({ordinality_total: 0, click_total: 0}) do |sum, click|
+        sum[:ordinality_total] += click.mean_ordinality * click.total_events
+        sum[:click_total] += click.total_events
+        sum
+      end
+
+      ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total]
   end
 end

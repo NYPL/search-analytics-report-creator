@@ -1,3 +1,7 @@
+require 'google/apis/drive_v2'
+require 'googleauth'
+require 'google/apis/analytics_v3'
+
 class SearchTermByRepoAndSearchedFrom
 
   def initialize(options = {})
@@ -6,6 +10,15 @@ class SearchTermByRepoAndSearchedFrom
     @start_date    = options[:start_date]
     @end_date      = options[:end_date]
     @output        = options[:output]
+    @google_parent_id = options[:google_parent_id]
+  end
+
+  def report_basename
+    "output_#{@start_date}_#{@end_date}.csv"
+  end
+
+  def report_output_path
+    dir = (@output == "google-sheets") ? File.join(File.absolute_path('.'), self.report_basename) : File.join(File.absolute_path(@output), self.report_basename)
   end
 
   def generate_report!
@@ -47,9 +60,7 @@ class SearchTermByRepoAndSearchedFrom
       end
     end
 
-    output_file_path = File.join(File.absolute_path(@output), "output_#{@start_date}_#{@end_date}.csv")
-
-    CSV.open(output_file_path, 'wb') do |csv|
+    CSV.open(report_output_path, 'wb') do |csv|
       headers = ['Search Term', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'Mean Ordinality']
       csv << headers
 
@@ -97,6 +108,22 @@ class SearchTermByRepoAndSearchedFrom
           csv << sum_for_searched_repo_row
         end
       end
-end
-end
+    end
+
+    if @output == "google-sheets"
+      upload_to_drive
+    end
+  end
+
+  def upload_to_drive
+    drive = Google::Apis::DriveV2::DriveService.new
+    scopes = ['https://www.googleapis.com/auth/drive.file']
+    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
+
+    drive.authorization = auth
+    # Upload a file
+    metadata = Google::Apis::DriveV2::File.new(title: self.report_basename)
+    file = drive.insert_file(metadata, convert: true, upload_source: self.report_output_path, content_type: 'text/csv')
+    drive.update_file(file.id, add_parents: @google_parent_id)
+  end
 end

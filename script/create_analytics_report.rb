@@ -25,6 +25,10 @@ OptionParser.new do |parser|
     options[:output] = specified_output
   end
 
+  parser.on('-g', '--google-parent-id PARENTFOLDERID', 'id of google drive folder to put report in') do |google_parent_id|
+    options[:google_parent_id] = google_parent_id
+  end
+
   parser.on_tail('-h', '--help', 'Prints this help') do
     puts parser
     exit

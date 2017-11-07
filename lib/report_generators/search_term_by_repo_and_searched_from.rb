@@ -173,4 +173,65 @@ ty }.to_f) / click_events_by_from.length
       end
     end
   end
+
+  @dimensions = [:searched_repo, :searched_from]
+
+  def process_data_for_segments_of_type(segment_dimension) 
+    all_clicks_for_this.group_by(&segment_dimension).each do |segment, click_events_by_segment|
+      click_events_by_segment.sort { |x,y| 
+        [x.values_at(**dimensions)] <=> [y.values_at(**dimensions)]
+      }.each do |clicks_segment|
+
+        row = []
+        row << query_term
+
+        dimensions.each do |dimension|
+          row << clicks_segment.send(dimension)
+        end
+
+        matching_queries_segment =  query_segments.find { |queries_segment| 
+          queries_segment.search_term == clicks_segment.search_term &&
+          queries_segment.searched_from == clicks_segment.searched_from &&
+          queries_segment.searched_repo == clicks_segment.searched_repo 
+        }
+       
+        row << matching_queries_segment.total_events
+        row << clicks_segment.total_events
+        row << '%.2f' % ((clicks_segment.total_events.to_f / matching_queries_segment.total_events) * 100)
+        row << '%.2f' % clicks_segment.mean_ordinality
+        csv << row
+      end
+
+      sum_for_segment_row = []
+      sum_for_segment_row << query_term
+      dimensions.each do |dimension|
+        sum_for_segment_row << dimension == segment_dimension ? "ALL" : dimension
+      end
+
+      all_query_segments_for_this_segment = query_segments.find_all { |queries_segment| 
+        queries_segment.search_term == query_term && 
+        queries_segment.send(segment_dimension) == segment
+      }
+
+      # Total searches
+      total_searches = all_query_segments_for_this_segment.inject(0) { |sum, queries_segment| 
+        sum + queries_segment.total_events 
+      }
+      sum_for_segment_row << total_searches
+
+      # Total clicks
+      total_clicks = click_events_by_segment.inject(0) {|sum, clicks_segment| sum + clicks_segment.total_events }
+      sum_for_segment_row << total_clicks
+
+      # CTR
+      sum_for_segment_row << '%.2f' % ((total_clicks.to_f / total_searches) * 100)
+
+      # Mean Ordinality
+      all_ordinality = (click_events_by_from.inject(0) {|sum, click| sum + click.mean_ordinality }.to_f) / click_events_by_from.length
+      sum_for_segment_row << ('%.2f' % (all_ordinality))
+
+      csv << sum_for_segment_row
+    end
+
+  end
 end

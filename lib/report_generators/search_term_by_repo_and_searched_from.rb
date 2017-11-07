@@ -1,4 +1,4 @@
-require 'google/apis/drive_v2'
+require 'google/apis/drive_v3'
 require 'googleauth'
 require 'google/apis/analytics_v3'
 require 'date'
@@ -124,14 +124,14 @@ class SearchTermByRepoAndSearchedFrom
   end
 
   def upload_to_drive
-    drive = Google::Apis::DriveV2::DriveService.new
+    drive = Google::Apis::DriveV3::DriveService.new
     scopes = ['https://www.googleapis.com/auth/drive.file']
     auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
 
     drive.authorization = auth
     # Upload a file
-    metadata = Google::Apis::DriveV2::File.new(title: self.report_basename)
-    file = drive.insert_file(metadata, convert: true, upload_source: self.report_output_path, content_type: 'text/csv')
+    metadata = Google::Apis::DriveV3::File.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
+    file = drive.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
     drive.update_file(file.id, add_parents: @google_parent_id)
   end
 
@@ -141,7 +141,7 @@ class SearchTermByRepoAndSearchedFrom
         sum[:click_total] += click.total_events
         sum
       end
-      
+
       ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total]
   end
 end

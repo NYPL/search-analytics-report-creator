@@ -14,7 +14,13 @@ class SearchTermByRepoAndSearchedFrom
   end
 
   def report_basename
-    "output_#{@start_date}_#{@end_date}.csv"
+    require 'date'
+    Date.today.strftime('YYYY-MM-DD')
+    @start_date == 'yesterday' ? real_start_date = (Date.today - 1).strftime : real_start_date = @start_date
+    @start_date == 'today' ? real_start_date = (Date.today).strftime : ''
+    @end_date == 'yesterday' ? real_end_date = (Date.today - 1).strftime : real_end_date = @end_date
+    @end_date == 'today' ? real_end_date = (Date.today).strftime : ''
+    "output_#{real_start_date}_#{real_end_date}.csv"
   end
 
   def report_output_path

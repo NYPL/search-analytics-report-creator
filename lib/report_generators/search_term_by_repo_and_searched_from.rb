@@ -1,3 +1,8 @@
+require 'google/apis/drive_v3'
+require 'googleauth'
+require 'google/apis/analytics_v3'
+require 'date'
+
 class SearchTermByRepoAndSearchedFrom
 
   def initialize(options = {})
@@ -6,6 +11,22 @@ class SearchTermByRepoAndSearchedFrom
     @start_date    = options[:start_date]
     @end_date      = options[:end_date]
     @output        = options[:output]
+    @google_parent_id = options[:google_parent_id]
+  end
+
+  def report_basename
+    mapping = {
+      'today'     =>  Date.today.strftime(),
+      'yesterday' =>  (Date.today - 1).strftime()
+    }
+    real_start_date = mapping[@start_date] || @start_date
+    real_end_date   = mapping[@end_date] || @end_date
+
+    "output_#{real_start_date}_#{real_end_date}.csv"
+  end
+
+  def report_output_path
+    dir = (@output == "google-sheets") ? File.join(File.absolute_path('.'), self.report_basename) : File.join(File.absolute_path(@output), self.report_basename)
   end
 
   def generate_report!
@@ -111,7 +132,7 @@ class SearchTermByRepoAndSearchedFrom
 
           csv << sum_for_searched_repo_row
         end
-      
+
         term_total_row = []
         term_total_row << query_term
         term_total_row << 'ALL'
@@ -127,6 +148,23 @@ class SearchTermByRepoAndSearchedFrom
 
       end
     end
+
+    if @output == "google-sheets"
+      upload_to_drive
+    end
+
+  end
+
+  def upload_to_drive
+    drive = Google::Apis::DriveV3::DriveService.new
+    scopes = ['https://www.googleapis.com/auth/drive.file']
+    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
+
+    drive.authorization = auth
+    # Upload a file
+    metadata = Google::Apis::DriveV3::File.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
+    file = drive.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
+    drive.update_file(file.id, add_parents: @google_parent_id)
   end
 
   def mean_ordinality_over_segments(clickthrough_segments)

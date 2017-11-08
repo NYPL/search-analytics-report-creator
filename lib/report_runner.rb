@@ -1,11 +1,10 @@
-require 'googleauth'
-require 'google/apis/analytics_v3'
 require 'csv'
 Dir[File.join(File.dirname(__FILE__), 'report_generators', '*.rb')].each {|file| require file }
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each {|file| require file }
 
 class ReportRunner
   attr_reader :errors
+  attr_accessor :google_parent_id
 
   def initialize(options = {})
     @errors = []
@@ -14,6 +13,7 @@ class ReportRunner
     @end_date      = options[:end_date]
     @auth_file     = options[:auth_file]
     @output        = options[:output]
+    @google_parent_id = options[:google_parent_id]
   end
 
   def valid?
@@ -23,9 +23,11 @@ class ReportRunner
       has_required_attribute?(:@start_date),
       has_required_attribute?(:@end_date),
       has_required_attribute?(:@output),
-      has_required_attribute?(:@auth_file)
+      has_required_attribute?(:@auth_file),
+      check_google_parent_id?
     ]
-    checks.all?{|result| result == true}
+
+    @errors.empty?
   end
 
   def generate_report
@@ -34,13 +36,23 @@ class ReportRunner
       ga_profile_id: @ga_profile_id ,
       start_date: @start_date,
       end_date: @end_date,
-      output: @output
+      output: @output,
+      google_parent_id: @google_parent_id
     })
 
     report_generator.generate_report!
   end
 
 private
+
+  def check_google_parent_id?
+    if @output == "google-sheets" && @google_parent_id.nil?
+      @errors << "requires a google_parent_id for google-sheets output"
+      return false
+    end
+
+    return true
+  end
 
   def has_required_attribute?(attr)
     if instance_variable_get(attr).nil?

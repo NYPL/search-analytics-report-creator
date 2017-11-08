@@ -24,7 +24,7 @@ class ReportRunner
       has_required_attribute?(:@end_date),
       has_required_attribute?(:@output),
       has_required_attribute?(:@auth_file),
-      has_google_parent_id?
+      check_google_parent_id?
     ]
 
     @errors.empty?
@@ -45,17 +45,13 @@ class ReportRunner
 
 private
 
-  def has_google_parent_id?
-    if @output == "google-sheets"
-      if !@google_parent_id.nil?
-        return true
-      else
-        @errors << "requires a drive_parent_id for google-sheets output"
-        return false
-      end
-    else
-      true
+  def check_google_parent_id?
+    if @output == "google-sheets" && @google_parent_id.nil?
+      @errors << "requires a google_parent_id for google-sheets output"
+      return false
     end
+
+    return true
   end
 
   def has_required_attribute?(attr)

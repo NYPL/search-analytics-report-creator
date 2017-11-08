@@ -24,16 +24,16 @@ describe ReportRunner do
       expect(report_runner.errors).to include("is missing auth_file")
     end
 
-    it "will have an error if given 'google-sheets' as an output but no drive_parent_id" do
+    it "will have an error if given 'google-sheets' as an output but no google_parent_id" do
       report_runner = ReportRunner.new(output: 'google-sheets')
       report_runner.valid?
       expect(report_runner).to_not be_valid
       
-      expect(report_runner.errors).to include("requires a drive_parent_id for google-sheets output")
+      expect(report_runner.errors).to include("requires a google_parent_id for google-sheets output")
 
       report_runner.google_parent_id = "nowihaveavalue"
       expect(report_runner).to_not be_valid
-      expect(report_runner.errors).to_not include("requires a drive_parent_id for google-sheets output")
+      expect(report_runner.errors).to_not include("requires a google_parent_id for google-sheets output")
     end
 
   end

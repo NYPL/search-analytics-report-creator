@@ -26,7 +26,7 @@ class SearchTermByRepoAndSearchedFrom
   end
 
   def report_output_path
-    dir = (@output == "google-sheets") ? File.join(File.absolute_path('.'), self.report_basename) : File.join(File.absolute_path(@output), self.report_basename)
+    (@output == "google-sheets") ? File.join(File.absolute_path('.'), self.report_basename) : File.join(File.absolute_path(@output), self.report_basename)
   end
 
   def generate_report!
@@ -71,8 +71,10 @@ class SearchTermByRepoAndSearchedFrom
     output_file_path = File.join(File.absolute_path(@output), "output_#{@start_date}_#{@end_date}.csv")
 
     CSV.open(output_file_path, 'wb') do |csv|
-      headers = ['Search Term', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
+      headers = ['Search Term', 'Row number', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
       csv << headers
+
+      row_number = 0
 
       all_query_terms = queries.map(&:search_term).uniq
       all_query_terms.each do |query_term|
@@ -86,6 +88,7 @@ class SearchTermByRepoAndSearchedFrom
           click_events.each do |click_event|
             row = []
             row << query_term
+            row << row_number += 1
             row << click_event.searched_repo
             row << click_event.searched_from
 
@@ -100,6 +103,7 @@ class SearchTermByRepoAndSearchedFrom
 
           sum_for_searched_repo_row = []
           sum_for_searched_repo_row << query_term
+          sum_for_searched_repo_row << row_number += 1
           sum_for_searched_repo_row << searched_repo
           sum_for_searched_repo_row << "ALL"
 
@@ -135,6 +139,7 @@ class SearchTermByRepoAndSearchedFrom
 
         term_total_row = []
         term_total_row << query_term
+        term_total_row << row_number += 1
         term_total_row << 'ALL'
         term_total_row << 'ALL'
 
@@ -147,6 +152,7 @@ class SearchTermByRepoAndSearchedFrom
         csv << term_total_row
 
       end
+
     end
 
     if @output == "google-sheets"

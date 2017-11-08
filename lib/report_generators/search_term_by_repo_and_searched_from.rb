@@ -68,12 +68,19 @@ class SearchTermByRepoAndSearchedFrom
       end
     end
 
-    CSV.open(report_output_path, 'wb') do |csv|
-      headers = ['Search Term', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'Mean Ordinality']
+    output_file_path = File.join(File.absolute_path(@output), "output_#{@start_date}_#{@end_date}.csv")
+
+    CSV.open(output_file_path, 'wb') do |csv|
+      headers = ['Search Term', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
       csv << headers
 
       all_query_terms = queries.map(&:search_term).uniq
       all_query_terms.each do |query_term|
+
+        term_total_searches = 0
+        term_total_clicks = 0
+        term_ordinality_sum = 0
+
         all_clicks_for_this = clicks.find_all { |click| click.search_term == query_term }
         all_clicks_for_this.group_by(&:searched_repo).each do |searched_repo, click_events|
           click_events.each do |click_event|
@@ -86,6 +93,7 @@ class SearchTermByRepoAndSearchedFrom
             row << matching_query_event.total_events
             row << click_event.total_events
             row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
+            row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events / matching_query_event.total_events) * 100)
             row << '%.2f' % click_event.mean_ordinality
             csv << row
           end
@@ -102,18 +110,42 @@ class SearchTermByRepoAndSearchedFrom
           total_searches = all_queries_for_this.inject(0) {|sum, query| sum + query.total_events }
           sum_for_searched_repo_row << total_searches
 
+          term_total_searches += total_searches
+
           # Total clicks
           total_clicks = click_events.inject(0) {|sum, click| sum + click.total_events }
           sum_for_searched_repo_row << total_clicks
 
+          term_total_clicks += total_clicks
+
           # CTR
           sum_for_searched_repo_row << '%.2f' % ((total_clicks.to_f / total_searches) * 100)
 
+          # WCTR
+          sum_for_searched_repo_row << '%.2f' % ((total_clicks.to_f / total_searches / total_searches) * 100)
+
           # Mean Ordinality
-          sum_for_searched_repo_row << ('%.2f' % (mean_ordinality_over_segments(click_events)))
+          mean_ordinality_for_repo_row = mean_ordinality_over_segments(click_events)
+          sum_for_searched_repo_row << '%.2f' % mean_ordinality_for_repo_row
+
+          term_ordinality_sum += mean_ordinality_for_repo_row * total_clicks
 
           csv << sum_for_searched_repo_row
         end
+
+        term_total_row = []
+        term_total_row << query_term
+        term_total_row << 'ALL'
+        term_total_row << 'ALL'
+
+        term_total_row << term_total_searches
+        term_total_row << term_total_clicks
+        term_total_row << '%.2f' % ((term_total_clicks.to_f / term_total_searches) * 100)
+        term_total_row << '%.2f' % ((term_total_clicks.to_f / term_total_searches / term_total_searches) * 100)
+        term_total_row << '%.2f' % (term_ordinality_sum.to_f / term_total_clicks)
+
+        csv << term_total_row
+
       end
     end
 

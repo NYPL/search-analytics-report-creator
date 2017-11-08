@@ -30,10 +30,16 @@ USAGE: ruby ./script/create_analytics_reports.rb [options]
     -s, --start-date STARTDATE       Start date of the report. Formatting can be found here: https://developers.google.com/analytics/devguides/reporting/core/v3/reference#startDate
     -e, --end-date ENDDATE           End date of the report. Formatting can be found here: https://developers.google.com/analytics/devguides/reporting/core/v3/reference#endDate
     -o, --output OUTPUT              output can be: /path/to/a/dir/ or "google-sheets"
+    -g PARENTFOLDERID,               id of google drive folder to put report in
+        --google-parent-id
     -h, --help                       Prints this help
 ```
 
-Example: `ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o ~/Desktop/`
+Examples: 
+
+`ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o ~/Desktop/`
+
+`ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o google-sheets --google-parent-id SomeGoogleParentFolderId`
 
 ## Docker
 

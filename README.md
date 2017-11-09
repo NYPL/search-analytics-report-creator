@@ -43,11 +43,20 @@ Examples:
 
 ## Docker
 
-### Building
+## Building & Pushing to AWS ECR
 
-Please use `--no-cache` flag to build Docker image.
+We host our built images on [Amazon ECR](https://aws.amazon.com/ecr/).
 
-`docker build --no-cache .`
+1. "log in" to ECR:  `aws ecr get-login --no-include-email --region us-east-1 --profile [ACCOUNT-NAME] | /bin/bash`
+If you receive an "Unknown options: --no-include-email" error, install the latest version of the AWS CLI.
+
+1.  Build your image `docker build --no-cache -t nypl/search-analytics-report-creator:[TAGNAME] .`
+You **MUST NOT** use an existing tag name. You must increment its semver.
+You can skip this step if your image is already built.
+
+1.  Link your local tag to the remote one: `docker tag nypl/search-analytics-report-creator:[TAGNAME] [ACCOUNT-ID].dkr.ecr.us-east-1.amazonaws.com/nypl/search-analytics-report-creator:[TAGNAME]`
+
+1.  Actually push: `docker push nypl/search-analytics-report-creator:[TAGNAME]`
 
 ### Running locally from built docker image
 

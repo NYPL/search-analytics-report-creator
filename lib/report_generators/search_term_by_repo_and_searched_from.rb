@@ -1,6 +1,7 @@
 require 'google/apis/drive_v3'
 require 'googleauth'
 require 'google/apis/analytics_v3'
+require 'google/apis/sheets_v4'
 require 'date'
 
 class SearchTermByRepoAndSearchedFrom
@@ -170,6 +171,39 @@ class SearchTermByRepoAndSearchedFrom
     metadata = Google::Apis::DriveV3::File.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
     file = drive.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
     drive.update_file(file.id, add_parents: @google_parent_id)
+
+    filter_spreadsheet(file)
+  end
+
+  def filter_spreadsheet(file)
+    sheets = Google::Apis::SheetsV4::SheetsService.new
+    
+    scopes = ['https://www.googleapis.com/auth/drive.file']
+    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
+
+    sheets.authorization = auth
+    
+    spreadsheet = sheets.get_spreadsheet(file.id)
+
+    requests = {
+      requests: [
+        add_filter_view: {
+          filter: {
+            range: {
+              sheet_id: spreadsheet.sheets()[0],
+            },
+            criteria: {
+              '2': {
+                hidden_values: ['Encore', 'DrupalSearch', 'BetaSearch']
+              }
+            }
+          }
+        }
+      ]
+    }
+    
+    sheets.batch_update_spreadsheet(file.id, requests, {})
+
   end
 
   def mean_ordinality_over_segments(clickthrough_segments)

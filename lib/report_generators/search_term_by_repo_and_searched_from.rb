@@ -19,6 +19,7 @@ class SearchTermByRepoAndSearchedFrom
       'today'     =>  Date.today.strftime(),
       'yesterday' =>  (Date.today - 1).strftime()
     }
+
     real_start_date = mapping[@start_date] || @start_date
     real_end_date   = mapping[@end_date] || @end_date
 
@@ -68,9 +69,7 @@ class SearchTermByRepoAndSearchedFrom
       end
     end
 
-    output_file_path = File.join(File.absolute_path(@output), "output_#{@start_date}_#{@end_date}.csv")
-
-    CSV.open(output_file_path, 'wb') do |csv|
+    CSV.open(report_output_path, 'wb') do |csv|
       headers = ['Search Term', 'Row number', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
       csv << headers
 

@@ -35,26 +35,38 @@ USAGE: ruby ./script/create_analytics_reports.rb [options]
     -h, --help                       Prints this help
 ```
 
-Examples: 
+Examples:
 
 `ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o ~/Desktop/`
 
 `ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o google-sheets --google-parent-id SomeGoogleParentFolderId`
 
+## Git & Release Workflow
+
+Pull requests should be made against master.
+When a new version is ready for deployment:
+
+
+1.  Create a new tag and push it to github:  
+`git tag -am "SEMVER" SEMVER && git push origin SEMVER`
+
+1.  Build a Docker image, from that checkout out tag, and push it to ECS.  
+See [Building & Pushing to AWS ECR](#building-and-pushing) for more info.
+
 ## Docker
 
-## Building & Pushing to AWS ECR
+## <a name="building-and-pushing"></a>Building & Pushing to AWS ECR
 
 We host our built images on [Amazon ECR](https://aws.amazon.com/ecr/).
 
-1. "log in" to ECR:  `aws ecr get-login --no-include-email --region us-east-1 --profile [ACCOUNT-NAME] | /bin/bash`
+1. "log in" to ECR:  `aws ecr get-login --no-include-email --region us-east-1 --profile [ACCOUNT-NAME] | /bin/bash`.   
 If you receive an "Unknown options: --no-include-email" error, install the latest version of the AWS CLI.
 
-1.  Build your image `docker build --no-cache -t nypl/search-analytics-report-creator:[TAGNAME] .`
+1.  Build your image `docker build --no-cache -t nypl/search-analytics-report-creator:[TAGNAME] .`  
 You **MUST NOT** use an existing tag name. You must increment its semver.
 You can skip this step if your image is already built.
 
-1.  Link your local tag to the remote one: `docker tag nypl/search-analytics-report-creator:[TAGNAME] [ACCOUNT-ID].dkr.ecr.us-east-1.amazonaws.com/nypl/search-analytics-report-creator:[TAGNAME]`
+1.  Link your local tag to the remote one: `docker tag nypl/search-analytics-report-creator:[TAGNAME]   [ACCOUNT-ID].dkr.ecr.us-east-1.amazonaws.com/nypl/search-analytics-report-creator:[TAGNAME]`
 
 1.  Actually push: `docker push nypl/search-analytics-report-creator:[TAGNAME]`
 
@@ -63,8 +75,3 @@ You can skip this step if your image is already built.
 And use `--env-file` flag to run Docker image with corresponding environment variable file.
 
 `docker run --env-file config/.env.sample [name-or-id-of-docker-image]`
-
-
-## Deploying
-
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.

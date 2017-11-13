@@ -31,11 +31,21 @@ class SearchTermByRepoAndSearchedFrom
     (@output == "google-sheets") ? File.join(File.absolute_path('.'), self.report_basename) : File.join(File.absolute_path(@output), self.report_basename)
   end
 
+  def auth_analytics
+    auth(scopes: ['https://www.googleapis.com/auth/analytics.readonly'])
+  end
+
+  def auth_drive
+    auth(scopes: ['https://www.googleapis.com/auth/drive.file'])
+  end
+
+  def auth(scopes: [])
+    Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
+  end
+
   def generate_report!
-    scopes = ['https://www.googleapis.com/auth/analytics.readonly']
-    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
     stats = Google::Apis::AnalyticsV3::AnalyticsService.new
-    stats.authorization = auth
+    stats.authorization = auth_analytics
 
     query_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
     click_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
@@ -163,10 +173,8 @@ class SearchTermByRepoAndSearchedFrom
 
   def upload_to_drive
     drive = Google::Apis::DriveV3::DriveService.new
-    scopes = ['https://www.googleapis.com/auth/drive.file']
-    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
+    drive.authorization = auth_drive
 
-    drive.authorization = auth
     # Upload a file
     metadata = Google::Apis::DriveV3::File.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
     file = drive.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
@@ -177,11 +185,7 @@ class SearchTermByRepoAndSearchedFrom
 
   def filter_spreadsheet(file)
     sheets = Google::Apis::SheetsV4::SheetsService.new
-    
-    scopes = ['https://www.googleapis.com/auth/drive.file']
-    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
-
-    sheets.authorization = auth
+    sheets.authorization = auth_drive
     
     spreadsheet = sheets.get_spreadsheet(file.id)
 
@@ -234,7 +238,7 @@ class SearchTermByRepoAndSearchedFrom
         }},
         {add_filter_view: {
           filter: {
-            title: 'Unknown searched from',
+            title: 'Unknown where searched from',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },

@@ -187,23 +187,68 @@ class SearchTermByRepoAndSearchedFrom
 
     requests = {
       requests: [
-        add_filter_view: {
+        {add_filter_view: {
           filter: {
+            title: 'All Query Summary',
             range: {
-              sheet_id: spreadsheet.sheets()[0],
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
               '2': {
-                hidden_values: ['Encore', 'DrupalSearch', 'BetaSearch']
+                hidden_values: ['Encore', 'DrupalSearch', 'BetaSearch', 'Beta Search', 'Catalog', 'SiteSearch']
               }
             }
           }
-        }
+        }},
+        {add_filter_view: {
+          filter: {
+            title: 'Encore — Header Search vs Browse',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '2': {
+                hidden_values: ['ALL', 'DrupalSearch', 'BetaSearch', 'Beta Search', 'Catalog', 'SiteSearch']
+              },
+              '3': {
+                hidden_values: ['ALL', 'Unknown']
+              }
+            }
+          }
+        }},
+        {add_filter_view: {
+          filter: {
+            title: 'Header Search',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '2': {
+                hidden_values: ['ALL', 'Catalog']
+              },
+              '3': {
+                hidden_values: ['ALL', 'EncoreSearchForm', 'Unknown']
+              }
+            }
+          }
+        }},
+        {add_filter_view: {
+          filter: {
+            title: 'Unknown searched from',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '3': {
+                hidden_values: ['ALL', 'HeaderSearch', 'EncoreSearchForm']
+              }
+            }
+          }
+        }}
       ]
     }
     
     sheets.batch_update_spreadsheet(file.id, requests, {})
-
   end
 
   def mean_ordinality_over_segments(clickthrough_segments)

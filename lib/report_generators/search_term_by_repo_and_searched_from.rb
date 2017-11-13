@@ -1,6 +1,7 @@
 require 'google/apis/drive_v3'
 require 'googleauth'
 require 'google/apis/analytics_v3'
+require 'google/apis/sheets_v4'
 require 'date'
 
 class SearchTermByRepoAndSearchedFrom
@@ -30,11 +31,21 @@ class SearchTermByRepoAndSearchedFrom
     (@output == "google-sheets") ? File.join(File.absolute_path('.'), self.report_basename) : File.join(File.absolute_path(@output), self.report_basename)
   end
 
+  def auth_analytics
+    auth(scopes: ['https://www.googleapis.com/auth/analytics.readonly'])
+  end
+
+  def auth_drive
+    auth(scopes: ['https://www.googleapis.com/auth/drive.file'])
+  end
+
+  def auth(scopes: [])
+    Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
+  end
+
   def generate_report!
-    scopes = ['https://www.googleapis.com/auth/analytics.readonly']
-    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
     stats = Google::Apis::AnalyticsV3::AnalyticsService.new
-    stats.authorization = auth
+    stats.authorization = auth_analytics
 
     query_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
     click_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
@@ -162,14 +173,86 @@ class SearchTermByRepoAndSearchedFrom
 
   def upload_to_drive
     drive = Google::Apis::DriveV3::DriveService.new
-    scopes = ['https://www.googleapis.com/auth/drive.file']
-    auth = Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
+    drive.authorization = auth_drive
 
-    drive.authorization = auth
     # Upload a file
     metadata = Google::Apis::DriveV3::File.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
     file = drive.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
     drive.update_file(file.id, add_parents: @google_parent_id)
+
+    filter_spreadsheet(file)
+  end
+
+  def filter_spreadsheet(file)
+    sheets = Google::Apis::SheetsV4::SheetsService.new
+    sheets.authorization = auth_drive
+    
+    spreadsheet = sheets.get_spreadsheet(file.id)
+
+    requests = {
+      requests: [
+        {add_filter_view: {
+          filter: {
+            title: 'All Query Summary',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '2': {
+                hidden_values: ['Encore', 'DrupalSearch', 'BetaSearch', 'Beta Search', 'Catalog', 'SiteSearch']
+              }
+            }
+          }
+        }},
+        {add_filter_view: {
+          filter: {
+            title: 'Encore — Header Search vs Browse',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '2': {
+                hidden_values: ['ALL', 'DrupalSearch', 'BetaSearch', 'Beta Search', 'Catalog', 'SiteSearch']
+              },
+              '3': {
+                hidden_values: ['ALL', 'Unknown']
+              }
+            }
+          }
+        }},
+        {add_filter_view: {
+          filter: {
+            title: 'Header Search',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '2': {
+                hidden_values: ['ALL', 'Catalog']
+              },
+              '3': {
+                hidden_values: ['ALL', 'EncoreSearchForm', 'Unknown']
+              }
+            }
+          }
+        }},
+        {add_filter_view: {
+          filter: {
+            title: 'Unknown where searched from',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '3': {
+                hidden_values: ['ALL', 'HeaderSearch', 'EncoreSearchForm']
+              }
+            }
+          }
+        }}
+      ]
+    }
+    
+    sheets.batch_update_spreadsheet(file.id, requests, {})
   end
 
   def mean_ordinality_over_segments(clickthrough_segments)

@@ -1,7 +1,12 @@
+lib_dir = File.join(File.absolute_path(__dir__), '..', 'lib')
 require 'optparse'
-require File.join(File.absolute_path(__dir__), '..', 'lib', 'report_runner')
+require File.join(lib_dir, 'report_runner')
+require File.join(lib_dir, 'json_logger')
+
+logger = JsonLogger.new.logger
 
 options = {}
+
 OptionParser.new do |parser|
   parser.banner = 'USAGE: ruby ./script/create_analytics_reports.rb [options]'
 
@@ -36,6 +41,7 @@ OptionParser.new do |parser|
 end.parse!
 
 report_runner = ReportRunner.new(options)
+logger.info("starting to run analytics report with options #{options}")
 
 if !report_runner.valid?
   puts "\nError running report, errors: #{report_runner.errors.join(', ')}\n\n"
@@ -43,3 +49,5 @@ if !report_runner.valid?
 else
   report_runner.generate_report
 end
+
+logger.info("finished running analytics report")

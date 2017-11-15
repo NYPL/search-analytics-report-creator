@@ -205,6 +205,8 @@ class SearchTermByDimensions
 
 end
 
+class NoEventSegmentsError < StandardError; end
+
 class TermEventsProcessor
   attr_accessor :term, :query_segments, :click_segments
 
@@ -235,7 +237,12 @@ class TermEventsProcessor
       current_values[this_dimension] = value
 
       values[this_dimension] = value
-      rows.concat(process_data_for_dimensions(dimensions, values: values))
+      begin
+        rows.concat(process_data_for_dimensions(dimensions, values: values))
+      rescue NoEventSegmentsError
+      end
+
+      rows
 
     end
 
@@ -263,6 +270,8 @@ class TermEventsProcessor
     matching_query_segments = segments_for_values(:query_segments, values)
     matching_click_segments = segments_for_values(:click_segments, values)
 
+    raise NoEventSegmentsError if matching_query_segments.empty? and matching_click_segments.empty? 
+
     row = []
     row << term
 
@@ -276,7 +285,7 @@ class TermEventsProcessor
 
     row << (total_clicks.to_f / total_queries).round(2)
     row << (total_clicks.to_f / total_queries / total_queries).round(4)
-    row << (self.class.mean_ordinality_over_segments(matching_click_segments)).round(2)
+    row << (self.class.mean_ordinality_over_segments(matching_click_segments)).round(1)
 
   end
 
@@ -287,7 +296,7 @@ class TermEventsProcessor
         sum
       end
 
-      ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total]
+      ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total] rescue 0
   end
 
 end 

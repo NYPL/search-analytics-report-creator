@@ -31,7 +31,7 @@ class ReportRunner
   end
 
   def generate_report
-    report_generator = SearchTermByRepoAndSearchedFrom.new({
+    report_generator = SearchTermByDimensions.new({
       auth_file: @auth_file,
       ga_profile_id: @ga_profile_id ,
       start_date: @start_date,

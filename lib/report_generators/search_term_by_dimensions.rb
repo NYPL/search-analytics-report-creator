@@ -4,7 +4,10 @@ require 'google/apis/analytics_v3'
 require 'google/apis/sheets_v4'
 require 'date'
 
-class SearchTermByRepoAndSearchedFrom
+require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app')
+
+class SearchTermByDimensions
+  attr_accessor :queries, :clicks, :dimensions
 
   def initialize(options = {})
     @auth_file     = options[:auth_file]
@@ -13,6 +16,8 @@ class SearchTermByRepoAndSearchedFrom
     @end_date      = options[:end_date]
     @output        = options[:output]
     @google_parent_id = options[:google_parent_id]
+    @queries       = []
+    @clicks        = []
   end
 
   def report_basename
@@ -43,15 +48,12 @@ class SearchTermByRepoAndSearchedFrom
     Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
   end
 
-  def generate_report!
+  def get_events()
     stats = Google::Apis::AnalyticsV3::AnalyticsService.new
     stats.authorization = auth_analytics
 
     query_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
     click_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
-
-    queries = []
-    clicks  = []
 
     if query_response.rows
       query_response.rows.each do |query_row|
@@ -79,90 +81,36 @@ class SearchTermByRepoAndSearchedFrom
         })
       end
     end
+  end
+
+  def process_data_for_term(term)
+    events_processor = TermEventsProcessor.new(term: term, query_segments: query_events_for_term(term), click_segments: click_events_for_term(term))
+    events_processor.process
+  end
+
+  def click_events_for_term(term)
+    clicks.find_all { |click| click.search_term == term }
+  end
+
+  def query_events_for_term(term)
+    queries.find_all { |query| query.search_term == term }
+  end
+
+  def generate_report!
+
+    get_events
+    
+    all_query_terms = queries.map(&:search_term).uniq
+    all_results = all_query_terms.inject([]) do |running_results, query_term|
+     
+      running_results.concat(process_data_for_term(query_term))
+
+    end
 
     CSV.open(report_output_path, 'wb') do |csv|
-      headers = ['Search Term', 'Row number', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
+      headers = ['search term', 'row number', 'searched repo', 'searched from', 'total searches', 'total clicks', 'ctr', 'wctr', 'mean ordinality']
       csv << headers
-
-      row_number = 0
-
-      all_query_terms = queries.map(&:search_term).uniq
-      all_query_terms.each do |query_term|
-
-        term_total_searches = 0
-        term_total_clicks = 0
-        term_ordinality_sum = 0
-
-        all_clicks_for_this = clicks.find_all { |click| click.search_term == query_term }
-        all_clicks_for_this.group_by(&:searched_repo).each do |searched_repo, click_events|
-          click_events.each do |click_event|
-            row = []
-            row << query_term
-            row << row_number += 1
-            row << click_event.searched_repo
-            row << click_event.searched_from
-
-            matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == click_event.searched_from && query.searched_repo == click_event.searched_repo }
-            row << matching_query_event.total_events
-            row << click_event.total_events
-            row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
-            row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events / matching_query_event.total_events) * 100)
-            row << '%.2f' % click_event.mean_ordinality
-            csv << row
-          end
-
-          sum_for_searched_repo_row = []
-          sum_for_searched_repo_row << query_term
-          sum_for_searched_repo_row << row_number += 1
-          sum_for_searched_repo_row << searched_repo
-          sum_for_searched_repo_row << "ALL"
-
-
-          all_queries_for_this = queries.find_all {|query| query.search_term == query_term && query.searched_repo == searched_repo}
-
-          # Total searches
-          total_searches = all_queries_for_this.inject(0) {|sum, query| sum + query.total_events }
-          sum_for_searched_repo_row << total_searches
-
-          term_total_searches += total_searches
-
-          # Total clicks
-          total_clicks = click_events.inject(0) {|sum, click| sum + click.total_events }
-          sum_for_searched_repo_row << total_clicks
-
-          term_total_clicks += total_clicks
-
-          # CTR
-          sum_for_searched_repo_row << '%.2f' % ((total_clicks.to_f / total_searches) * 100)
-
-          # WCTR
-          sum_for_searched_repo_row << '%.2f' % ((total_clicks.to_f / total_searches / total_searches) * 100)
-
-          # Mean Ordinality
-          mean_ordinality_for_repo_row = mean_ordinality_over_segments(click_events)
-          sum_for_searched_repo_row << '%.2f' % mean_ordinality_for_repo_row
-
-          term_ordinality_sum += mean_ordinality_for_repo_row * total_clicks
-
-          csv << sum_for_searched_repo_row
-        end
-
-        term_total_row = []
-        term_total_row << query_term
-        term_total_row << row_number += 1
-        term_total_row << 'ALL'
-        term_total_row << 'ALL'
-
-        term_total_row << term_total_searches
-        term_total_row << term_total_clicks
-        term_total_row << '%.2f' % ((term_total_clicks.to_f / term_total_searches) * 100)
-        term_total_row << '%.2f' % ((term_total_clicks.to_f / term_total_searches / term_total_searches) * 100)
-        term_total_row << '%.2f' % (term_ordinality_sum.to_f / term_total_clicks)
-
-        csv << term_total_row
-
-      end
-
+      all_results.each { |row| csv << row }
     end
 
     if @output == "google-sheets"
@@ -175,7 +123,7 @@ class SearchTermByRepoAndSearchedFrom
     drive = Google::Apis::DriveV3::DriveService.new
     drive.authorization = auth_drive
 
-    # Upload a file
+    # upload a file
     metadata = Google::Apis::DriveV3::File.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
     file = drive.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
     drive.update_file(file.id, add_parents: @google_parent_id)
@@ -193,58 +141,58 @@ class SearchTermByRepoAndSearchedFrom
       requests: [
         {add_filter_view: {
           filter: {
-            title: 'All Query Summary',
+            title: 'all query summary',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
               '2': {
-                hidden_values: ['Encore', 'DrupalSearch', 'BetaSearch', 'Beta Search', 'Catalog', 'SiteSearch']
+                hidden_values: ['encore', 'drupalsearch', 'betasearch', 'beta search', 'catalog', 'sitesearch']
               }
             }
           }
         }},
         {add_filter_view: {
           filter: {
-            title: 'Encore — Header Search vs Browse',
+            title: 'encore — header search vs browse',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
               '2': {
-                hidden_values: ['ALL', 'DrupalSearch', 'BetaSearch', 'Beta Search', 'Catalog', 'SiteSearch']
+                hidden_values: ['all', 'drupalsearch', 'betasearch', 'beta search', 'catalog', 'sitesearch']
               },
               '3': {
-                hidden_values: ['ALL', 'Unknown']
+                hidden_values: ['all', 'unknown']
               }
             }
           }
         }},
         {add_filter_view: {
           filter: {
-            title: 'Header Search',
+            title: 'header search',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
               '2': {
-                hidden_values: ['ALL', 'Catalog']
+                hidden_values: ['all', 'catalog']
               },
               '3': {
-                hidden_values: ['ALL', 'EncoreSearchForm', 'Unknown']
+                hidden_values: ['all', 'encoresearchform', 'unknown']
               }
             }
           }
         }},
         {add_filter_view: {
           filter: {
-            title: 'Unknown where searched from',
+            title: 'unknown where searched from',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
               '3': {
-                hidden_values: ['ALL', 'HeaderSearch', 'EncoreSearchForm']
+                hidden_values: ['all', 'headersearch', 'encoresearchform']
               }
             }
           }
@@ -255,7 +203,84 @@ class SearchTermByRepoAndSearchedFrom
     sheets.batch_update_spreadsheet(file.id, requests, {})
   end
 
-  def mean_ordinality_over_segments(clickthrough_segments)
+end
+
+class TermEventsProcessor
+  attr_accessor :term, :query_segments, :click_segments
+
+  @@dimensions = CONFIG[:dimensions]
+
+  def initialize(term:, query_segments:, click_segments:)
+
+    @term = term
+    @query_segments = query_segments
+    @click_segments = click_segments
+
+  end
+
+  def process
+    process_data_for_dimensions(@@dimensions)
+  end
+
+  def process_data_for_dimensions(dimensions, values: {})
+    return [data_row_for_values(values)] if dimensions.empty?
+
+    this_dimension = dimensions.shift
+
+    dimension_values = get_values(this_dimension)
+
+    event_rows = dimension_values.inject([]) do |rows, value|
+
+      current_values = {}
+      current_values[this_dimension] = value
+
+      values[this_dimension] = value
+      rows.concat(process_data_for_dimensions(dimensions, values: values))
+
+    end
+
+    # calculate_aggregates_for_dimension(event_rows, this_dimension)
+    event_rows
+
+  end
+
+  def get_values(dimension)
+    (click_segments.map(&dimension) + query_segments.map(&dimension)).uniq.sort
+  end
+
+  def segments_for_values(segment_type, values)
+    # For each event segment
+      self.send(segment_type).find_all do |segment|
+      # return all segments which match the appropriate values
+      values.each_pair.all? do |dimension, value|
+        segment.send(dimension) == value
+      end
+    end
+  end
+
+  def data_row_for_values(values)
+    
+    matching_query_segments = segments_for_values(:query_segments, values)
+    matching_click_segments = segments_for_values(:click_segments, values)
+
+    row = []
+    row << term
+
+    row.concat @@dimensions.map { |dimension| values[dimension] }
+    
+    total_queries = matching_query_segments.inject(0) { |sum, segment| sum += segment.total_events }
+    row << total_queries
+
+    total_clicks = matching_click_segments.inject(0) { |sum, segment| sum += segment.total_events }
+    row << total_clicks
+
+    row << (total_clicks.to_f / total_queries).round(2)
+    row << (total_clicks.to_f / total_queries / total_queries).round(4)
+    row << (self.class.mean_ordinality_over_segments(matching_click_segments)).round(2)
+
+  end
+
+  def self.mean_ordinality_over_segments(clickthrough_segments)
       ordinality_fraction = clickthrough_segments.inject({ordinality_total: 0, click_total: 0}) do |sum, click|
         sum[:ordinality_total] += click.mean_ordinality * click.total_events
         sum[:click_total] += click.total_events
@@ -264,4 +289,5 @@ class SearchTermByRepoAndSearchedFrom
 
       ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total]
   end
-end
+
+end 

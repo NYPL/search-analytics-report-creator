@@ -103,10 +103,12 @@ class SearchTermByRepoAndSearchedFrom
             row << click_event.searched_from
 
             matching_query_event =  queries.find { |query| query.search_term == query_term && query.searched_from == click_event.searched_from && query.searched_repo == click_event.searched_repo }
-            row << matching_query_event.total_events
+
+            row << (matching_query_event ? matching_query_event.total_events : 0)
+
             row << click_event.total_events
-            row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)
-            row << '%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events / matching_query_event.total_events) * 100)
+            row << (matching_query_event ? ('%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events) * 100)) : "NaN")
+            row << (matching_query_event ? ('%.2f' % ((click_event.total_events.to_f / matching_query_event.total_events / matching_query_event.total_events) * 100)) : "NaN")
             row << '%.2f' % click_event.mean_ordinality
             csv << row
           end

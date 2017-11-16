@@ -1,13 +1,10 @@
-require 'google/apis/drive_v3'
-require 'googleauth'
-require 'google/apis/analytics_v3'
-require 'google/apis/sheets_v4'
 require 'date'
+require File.join(__dir__, '..', 'google_api_client')
 
 class SearchTermByRepoAndSearchedFrom
 
   def initialize(options = {})
-    @auth_file     = options[:auth_file]
+    @google_api_client  = GoogleApiClient.new(auth_file: options[:auth_file])
     @ga_profile_id = options[:ga_profile_id]
     @start_date    = options[:start_date]
     @end_date      = options[:end_date]
@@ -31,24 +28,11 @@ class SearchTermByRepoAndSearchedFrom
     (@output == "google-sheets") ? File.join(File.absolute_path('.'), self.report_basename) : File.join(File.absolute_path(@output), self.report_basename)
   end
 
-  def auth_analytics
-    auth(scopes: ['https://www.googleapis.com/auth/analytics.readonly'])
-  end
-
-  def auth_drive
-    auth(scopes: ['https://www.googleapis.com/auth/drive.file'])
-  end
-
-  def auth(scopes: [])
-    Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
-  end
-
   def generate_report!
-    stats = Google::Apis::AnalyticsV3::AnalyticsService.new
-    stats.authorization = auth_analytics
+    analytics_client = @google_api_client.analytics_client
 
-    query_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
-    click_response = stats.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
+    query_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
+    click_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
 
     queries = []
     clicks  = []
@@ -174,22 +158,19 @@ class SearchTermByRepoAndSearchedFrom
   end
 
   def upload_to_drive
-    drive = Google::Apis::DriveV3::DriveService.new
-    drive.authorization = auth_drive
+    drive_client = @google_api_client.drive_client
 
     # Upload a file
-    metadata = Google::Apis::DriveV3::File.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
-    file = drive.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
-    drive.update_file(file.id, add_parents: @google_parent_id)
+    metadata = GoogleApiClient::DRIVE_FILE.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
+    file = drive_client.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
+    drive_client.update_file(file.id, add_parents: @google_parent_id)
 
     filter_spreadsheet(file)
   end
 
   def filter_spreadsheet(file)
-    sheets = Google::Apis::SheetsV4::SheetsService.new
-    sheets.authorization = auth_drive
-    
-    spreadsheet = sheets.get_spreadsheet(file.id)
+    sheets_client = @google_api_client.sheets_client
+    spreadsheet = sheets_client.get_spreadsheet(file.id)
 
     requests = {
       requests: [
@@ -253,8 +234,8 @@ class SearchTermByRepoAndSearchedFrom
         }}
       ]
     }
-    
-    sheets.batch_update_spreadsheet(file.id, requests, {})
+
+    sheets_client.batch_update_spreadsheet(file.id, requests, {})
   end
 
   def mean_ordinality_over_segments(clickthrough_segments)

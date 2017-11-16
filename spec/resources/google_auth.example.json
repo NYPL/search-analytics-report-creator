@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "ga-api-spike",
+  "private_key_id": "a-long-number",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nTHE CONTENTS OF A PROVATE KEY\n-----END PRIVATE KEY-----\n",
+  "client_email": "username@ga-api-spike.iam.gserviceaccount.com",
+  "client_id": "a-long-number",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://accounts.google.com/o/oauth2/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/my-spike-credentials%40ga-api-spike.iam.gserviceaccount.com"
+}

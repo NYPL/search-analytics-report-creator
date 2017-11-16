@@ -4,14 +4,13 @@ require 'google/apis/analytics_v3'
 require 'google/apis/sheets_v4'
 
 class GoogleApiClient
+
+  DRIVE_FILE = Google::Apis::DriveV3::File
+
   def initialize(options = {auth_file: nil})
     @auth_file = options[:auth_file]
 
     raise "missing auth_file" if @auth_file.nil?
-  end
-
-  def drive_file
-    Google::Apis::DriveV3::File
   end
 
   def analytics_client

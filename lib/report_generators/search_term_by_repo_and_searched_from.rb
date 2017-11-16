@@ -161,7 +161,7 @@ class SearchTermByRepoAndSearchedFrom
     drive_client = @google_api_client.drive_client
 
     # Upload a file
-    metadata = @google_api_client.drive_file.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
+    metadata = GoogleApiClient::DRIVE_FILE.new(name: self.report_basename, mime_type: 'application/vnd.google-apps.spreadsheet')
     file = drive_client.create_file(metadata, upload_source: self.report_output_path, content_type: 'text/csv', supports_team_drives: true)
     drive_client.update_file(file.id, add_parents: @google_parent_id)
 

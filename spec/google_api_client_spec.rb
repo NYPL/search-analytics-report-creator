@@ -8,8 +8,8 @@ describe GoogleApiClient do
     expect{GoogleApiClient.new()}.to raise_error("missing auth_file")
   end
 
-  it "drive_file return a Google::Apis::DriveV3::File" do
-    expect(@google_api_client.drive_file).to equal(Google::Apis::DriveV3::File)
+  it "DRIVE_FILE return a Google::Apis::DriveV3::File" do
+    expect(GoogleApiClient::DRIVE_FILE).to equal(Google::Apis::DriveV3::File)
   end
   
 end

@@ -1,28 +1,32 @@
+def path_to_auth
+  File.open(File.join(__dir__, 'resources', 'google_auth.example.json'))
+end 
+
 describe SearchTermByDimensions do
 
   describe "report_basename" do
 
     it "'yesterday' as a start_date or end_date will turn into the appropriate YYYY-MM-DD" do
-      report = SearchTermByDimensions.new(start_date: 'yesterday', end_date: 'yesterday')
+      report = SearchTermByDimensions.new(start_date: 'yesterday', end_date: 'yesterday', auth_file: path_to_auth)
       yesterday_as_string  = (Date.today - 1).strftime
       expect(report.report_basename).to eq("output_#{yesterday_as_string}_#{yesterday_as_string}.csv")
     end
 
     it "'today' as a start_date or end_date will turn into the appropriate YYYY-MM-DD" do
-      report = SearchTermByDimensions.new(start_date: 'today', end_date: 'today')
+      report = SearchTermByDimensions.new(start_date: 'today', end_date: 'today', auth_file: path_to_auth)
       today_as_string  = (Date.today).strftime
       expect(report.report_basename).to eq("output_#{today_as_string}_#{today_as_string}.csv")
     end
 
     it "accepts YYYY-MM-DD as start_date and end_date" do
-      report = SearchTermByDimensions.new(start_date: '1980-09-16', end_date: 'today')
+      report = SearchTermByDimensions.new(start_date: '1980-09-16', end_date: 'today', auth_file: path_to_auth)
       today_as_string  = (Date.today).strftime
       expect(report.report_basename).to eq("output_1980-09-16_#{today_as_string}.csv")
     end
   end
 
-   describe "results_for_terms" do
-     report = SearchTermByDimensions.new
+  describe "results_for_terms" do
+    report = SearchTermByDimensions.new(auth_file: path_to_auth)
     report.queries = [
       QueryResponse.new(search_term: 'Boney M', searched_repo: 'Encore', searched_from: 'HeaderSearch', total_events: 3),
       QueryResponse.new(search_term: 'Boney M', searched_repo: 'DrupalSearch', searched_from: 'HeaderSearch', total_events: 2),
@@ -44,7 +48,7 @@ describe SearchTermByDimensions do
 
     it "will produce an array of results for each permutation " do
       results = report.results_for_terms(['Anchorage', 'Best Books 2017', 'Boney M'])
-      
+
       # These are sorted alphabetically but will be in order of queries once we're doing aggregates.
       expect(results).to eql([
         ['Anchorage', 'DrupalSearch', 'HeaderSearch', 0, 1, nil, nil, 6.0],
@@ -62,3 +66,4 @@ describe SearchTermByDimensions do
   end
 
 end
+

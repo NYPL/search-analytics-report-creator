@@ -4,19 +4,19 @@ describe TermEventsProcessor do
 
   before(:example) do
     clickthrough_segments = [
-      instance_double("ClickResponse", searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetZ', total_events: 1, mean_ordinality: 10.0),
-      instance_double("ClickResponse", searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetA', total_events: 10, mean_ordinality: 3.0),
-      instance_double("ClickResponse", searched_repo: 'repo1', searched_from: 'from3', click_target: 'targetH', total_events: 100, mean_ordinality: 2.0),
-      instance_double("ClickResponse", searched_repo: 'repo1', searched_from: 'from2', click_target: 'targetZ', total_events: 1, mean_ordinality: 10.0),
-      instance_double("ClickResponse", searched_repo: 'repo3', searched_from: 'from3', click_target: 'targetH', total_events: 100, mean_ordinality: 2.0),
+      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetZ', total_events: 1, mean_ordinality: 10.0),
+      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetA', total_events: 10, mean_ordinality: 3.0),
+      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from3', click_target: 'targetH', total_events: 100, mean_ordinality: 2.0),
+      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from2', click_target: 'targetZ', total_events: 1, mean_ordinality: 10.0),
+      ClickResponse.new(searched_repo: 'repo3', searched_from: 'from3', click_target: 'targetH', total_events: 100, mean_ordinality: 2.0),
     ]
 
     query_segments = [
-      instance_double("QueryResponse", searched_repo: 'repo1', searched_from: 'from2', total_events: 3),
-      instance_double("QueryResponse", searched_repo: 'repo1', searched_from: 'from3', total_events: 130),
-      instance_double("QueryResponse", searched_repo: 'repo1', searched_from: 'from4', total_events: 30),
-      instance_double("QueryResponse", searched_repo: 'repo2', searched_from: 'from1', total_events: 1),
-      instance_double("QueryResponse", searched_repo: 'repo3', searched_from: 'from3', total_events: 122),
+      QueryResponse.new(searched_repo: 'repo1', searched_from: 'from2', total_events: 3),
+      QueryResponse.new(searched_repo: 'repo1', searched_from: 'from3', total_events: 130),
+      QueryResponse.new(searched_repo: 'repo1', searched_from: 'from4', total_events: 30),
+      QueryResponse.new(searched_repo: 'repo2', searched_from: 'from1', total_events: 1),
+      QueryResponse.new(searched_repo: 'repo3', searched_from: 'from3', total_events: 122),
     ]
 
     @events_processor = TermEventsProcessor.new(click_segments: clickthrough_segments, query_segments: query_segments, term: 'arbitrary')
@@ -66,13 +66,24 @@ describe TermEventsProcessor do
       expect(result_row).to eql(['arbitrary', 'repo3', 'from3', 122, 100, 0.82, 0.0067, 2.0])
     end
 
-    it "will return an array summarizing data from mutliple matching segment" do
+    it "will return a single array even if there are mutliple segments matching the specified values" do
       result_row = @events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from4'})
       expect(result_row).to eql(['arbitrary', 'repo1', 'from4', 30, 11, 0.37, 0.0122, 3.6])
     end
 
-    it "will raise an error if no click or query segments match the specified values" do
-      expect { @events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from1'}) }.to raise_error(NoEventSegmentsError)
+    it "will return appropriate values if we have clickthrough events but no queries" do
+      @events_processor.click_segments << instance_double("ClickResponse", searched_repo: 'repo1', searched_from: 'unwired_form', total_events: 5, mean_ordinality: 2.0)
+      result_row = @events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'unwired_form'})
+      expect(result_row).to eql(['arbitrary', 'repo1', 'unwired_form', 0, 5, nil, nil, 2.0])
+    end
+
+    it "will return appropriate values if we have query events but no clickthroughs" do
+      result_row = @events_processor.data_row_for_values({searched_repo: 'repo2', 'searched_from': 'from1'})
+      expect(result_row).to eql(['arbitrary', 'repo2', 'from1', 1, 0, 0.00, 0.0000, 0.0])
+    end
+
+    it "will return nil if no click or query segments match the specified values" do
+      expect(@events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from1'})).to be(nil)
     end
 
   end
@@ -84,12 +95,23 @@ describe TermEventsProcessor do
       expect(report_array).to eql([['arbitrary', 'repo3', 'from3', 122, 100, 0.82, 0.0067, 2.0]])
     end
 
-    it "will return rows for each dimension permutation" do
+    it "will return rows for each dimension permutation limited by the selected values" do
       report_array = @events_processor.process_data_for_dimensions([:searched_from], values: {searched_repo: 'repo1'})
       expect(report_array).to eql([
         ['arbitrary', 'repo1', 'from2', 3, 1, 0.33, 0.1111, 10.0],
         ['arbitrary', 'repo1', 'from3', 130, 100, 0.77, 0.0059, 2.0],
         ['arbitrary', 'repo1', 'from4', 30, 11, 0.37, 0.0122, 3.6],
+      ])
+    end
+
+    it "will return rows for each dimension permutation when given no values" do
+      report_array = @events_processor.process_data_for_dimensions([:searched_repo, :searched_from])
+      expect(report_array).to eql([
+        ['arbitrary', 'repo1', 'from2', 3, 1, 0.33, 0.1111, 10.0],
+        ['arbitrary', 'repo1', 'from3', 130, 100, 0.77, 0.0059, 2.0],
+        ['arbitrary', 'repo1', 'from4', 30, 11, 0.37, 0.0122, 3.6],
+        ['arbitrary', 'repo2', 'from1', 1, 0, 0.00, 0.0000, 0.0],
+        ['arbitrary', 'repo3', 'from3', 122, 100, 0.82, 0.0067, 2.0],
       ])
     end
 

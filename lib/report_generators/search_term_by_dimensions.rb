@@ -48,7 +48,7 @@ class SearchTermByDimensions
     Google::Auth::ServiceAccountCredentials.make_creds(json_key_io: File.open(@auth_file, 'r'), scope: scopes)
   end
 
-  def get_events()
+  def get_events!()
     stats = Google::Apis::AnalyticsV3::AnalyticsService.new
     stats.authorization = auth_analytics
 
@@ -96,19 +96,18 @@ class SearchTermByDimensions
     queries.find_all { |query| query.search_term == term }
   end
 
+  def results_for_terms(query_terms)
+    query_terms.sort.inject([]) { |running_results, query_term| running_results.concat(process_data_for_term(query_term)) }
+  end
+    
   def generate_report!
-
-    get_events
+    get_events!
     
     all_query_terms = queries.map(&:search_term).uniq
-    all_results = all_query_terms.inject([]) do |running_results, query_term|
-     
-      running_results.concat(process_data_for_term(query_term))
-
-    end
-
+    all_results = results_for_terms(all_query_terms)
+    
     CSV.open(report_output_path, 'wb') do |csv|
-      headers = ['search term', 'row number', 'searched repo', 'searched from', 'total searches', 'total clicks', 'ctr', 'wctr', 'mean ordinality']
+      headers = ['search term', 'searched repo', 'searched from', 'total searches', 'total clicks', 'ctr', 'wctr', 'mean ordinality']
       csv << headers
       all_results.each { |row| csv << row }
     end
@@ -219,7 +218,7 @@ class TermEventsProcessor
   end
 
   def process
-    process_data_for_dimensions(@@dimensions)
+    process_data_for_dimensions(@@dimensions.dup)
   end
 
   def process_data_for_dimensions(dimensions, values: {})

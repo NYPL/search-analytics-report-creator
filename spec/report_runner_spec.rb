@@ -55,7 +55,7 @@ describe ReportRunner do
     end
 
     it "will have an error if specified dimenion is not implemented in config/app.rb" do
-      CONFIG[:implemented_dimensions].clear
+      CONFIG[:reportable_dimensions].clear
 
       invalid_options = valid_options.dup
       invalid_options[:dimensions] = ['unimplemented_dimension']
@@ -66,21 +66,21 @@ describe ReportRunner do
     end
 
     it "will not have an error if specified dimension is implemented in config/app.rb" do
-      CONFIG[:implemented_dimensions].clear
-      CONFIG[:implemented_dimensions]['valid_dimension'] = {}
+      CONFIG[:reportable_dimensions].clear
+      CONFIG[:reportable_dimensions][:valid_dimension] = {events: [], ga_dimension: ''}
 
-      valid_options[:dimensions] = ['valid_dimension']
+      valid_options[:dimensions] = [:valid_dimension]
       report_runner = ReportRunner.new(valid_options)
 
       expect(report_runner.valid?).to be(true)
     end
 
     it "will have an error if valid and invalid dimenions are included" do
-      CONFIG[:implemented_dimensions].clear
-      CONFIG[:implemented_dimensions]['valid_dimension'] = {}
+      CONFIG[:reportable_dimensions].clear
+      CONFIG[:reportable_dimensions][:valid_dimension] = {events: [], ga_dimension: ''}
 
       options = valid_options.dup
-      options[:dimensions] = ['valid_dimension', 'unimplemented_dimension']
+      options[:dimensions] = [:valid_dimension, :unimplemented_dimension]
 
       report_runner_1 = ReportRunner.new(options)
       expect(report_runner_1.valid?).to be(false)

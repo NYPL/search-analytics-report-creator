@@ -65,9 +65,18 @@ private
 
   def dimensions_valid?
     dimensions.each do |dimension|
-      unless CONFIG[:implemented_dimensions].has_key?(dimension)
+      unless CONFIG[:reportable_dimensions].has_key?(dimension)
         @errors << "'#{dimension}' is not implemented in configuration file config/app.rb"
+        next
       end
+      config_for_dimension_valid?(dimension)
+    end
+  end
+
+  def config_for_dimension_valid?(dimension)
+    dimension_config = CONFIG[:reportable_dimensions][dimension]
+    unless dimension_config.has_key?(:events) and dimension_config.has_key?(:ga_dimension)
+      @errors << "'#{dimension}' in config does not have both :events and a :ga_dimension'"
     end
   end
 end

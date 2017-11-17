@@ -1,7 +1,7 @@
 require 'date'
 require File.join(__dir__, '..', 'google_api_client')
 
-require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app')
+require File.join(__dir__, '..', '..', 'config', 'app')
 
 class SearchTermByDimensions
   attr_accessor :queries, :clicks, :dimensions

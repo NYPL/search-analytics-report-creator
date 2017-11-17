@@ -34,6 +34,10 @@ OptionParser.new do |parser|
     options[:google_parent_id] = google_parent_id
   end
 
+  parser.on('-d', '--custom-dimensions', 'comma separated names of custom dimensions to include in the results') do |dimension_string|
+    options[:dimensions] = dimensions_string.split(',')
+  end
+
   parser.on_tail('-h', '--help', 'Prints this help') do
     puts parser
     exit

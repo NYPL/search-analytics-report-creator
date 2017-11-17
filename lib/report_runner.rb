@@ -3,7 +3,7 @@ Dir[File.join(File.dirname(__FILE__), 'report_generators', '*.rb')].each {|file|
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each {|file| require file }
 
 class ReportRunner
-  attr_reader :errors
+  attr_reader :dimensions, :errors
   attr_accessor :google_parent_id
 
   def initialize(options = {})
@@ -14,18 +14,18 @@ class ReportRunner
     @auth_file     = options[:auth_file]
     @output        = options[:output]
     @google_parent_id = options[:google_parent_id]
+    @dimensions = options[:dimensions] || []
   end
 
   def valid?
     @errors = []
-    checks = [
-      has_required_attribute?(:@ga_profile_id),
-      has_required_attribute?(:@start_date),
-      has_required_attribute?(:@end_date),
-      has_required_attribute?(:@output),
-      has_required_attribute?(:@auth_file),
-      check_google_parent_id?
-    ]
+    has_required_attribute?(:@ga_profile_id)
+    has_required_attribute?(:@start_date)
+    has_required_attribute?(:@end_date)
+    has_required_attribute?(:@output)
+    has_required_attribute?(:@auth_file)
+    check_google_parent_id?
+    dimensions_valid?
 
     @errors.empty?
   end
@@ -60,6 +60,14 @@ private
       return false
     else
       return true
+    end
+  end
+
+  def dimensions_valid?
+    dimensions.each do |dimension|
+      unless CONFIG[:implemented_dimensions].has_key?(dimension)
+        @errors << "'#{dimension}' is not implemented in configuration file config/app.rb"
+      end
     end
   end
 end

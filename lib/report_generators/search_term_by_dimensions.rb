@@ -13,6 +13,7 @@ class SearchTermByDimensions
     @end_date      = options[:end_date]
     @output        = options[:output]
     @google_parent_id = options[:google_parent_id]
+    @dimensions    = options[:dimensions]
     @queries       = []
     @clicks        = []
   end

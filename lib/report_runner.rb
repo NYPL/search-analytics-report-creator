@@ -37,10 +37,15 @@ class ReportRunner
       start_date: @start_date,
       end_date: @end_date,
       output: @output,
-      google_parent_id: @google_parent_id
+      google_parent_id: @google_parent_id,
+      dimensions: data_for_dimensions(@dimensions),
     })
 
     report_generator.generate_report!
+  end
+
+  def data_for_dimensions()
+    @dimensions.map { |dimension| {dimension => CONFIG[:reportable_dimensions][dimension]} }
   end
 
 private
@@ -79,4 +84,5 @@ private
       @errors << "'#{dimension}' in config does not have both :events and a :ga_dimension'"
     end
   end
+
 end

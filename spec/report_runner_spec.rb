@@ -30,7 +30,7 @@ describe ReportRunner do
       report_runner = ReportRunner.new(output: 'google-sheets')
       report_runner.valid?
       expect(report_runner).to_not be_valid
-      
+
       expect(report_runner.errors).to include("requires a google_parent_id for google-sheets output")
 
       report_runner.google_parent_id = "nowihaveavalue"
@@ -75,6 +75,35 @@ describe ReportRunner do
       expect(report_runner.valid?).to be(true)
     end
 
+    it "will have the appropriate dimensions from CONFIG" do
+
+      CONFIG[:reportable_dimensions].clear
+      CONFIG[:reportable_dimensions][:a_dimension] = {events: [], ga_dimension: ''}
+      CONFIG[:reportable_dimensions][:another_dimension] = {events: [], ga_dimension: ''}
+
+      valid_options[:dimensions] = [:another_dimension, :a_dimension]
+      report_runner = ReportRunner.new(valid_options)
+
+      expect(report_runner.dimensions).to eql([:another_dimension, :a_dimension])
+    end
+
+    it "will return dimension data" do
+      CONFIG[:reportable_dimensions].clear
+      CONFIG[:reportable_dimensions][:a_dimension] = {events: [:QuerySent, :Clickthrough], ga_dimension: 1}
+      CONFIG[:reportable_dimensions][:another_dimension] = {events: [:QuerySent], ga_dimension: 4}
+
+      valid_options[:dimensions] = [:another_dimension, :a_dimension]
+      valid_options[:dimensions] = [:another_dimension, :a_dimension]
+      report_runner = ReportRunner.new(valid_options)
+
+      expect(report_runner.data_for_dimensions).to eql(
+          [
+            {another_dimension: {events: [:QuerySent], ga_dimension: 4}},
+            {a_dimension: {events: [:QuerySent, :Clickthrough], ga_dimension: 1}},
+          ]
+      )
+    end
+
     it "will have an error if valid and invalid dimenions are included" do
       CONFIG[:reportable_dimensions].clear
       CONFIG[:reportable_dimensions][:valid_dimension] = {events: [], ga_dimension: ''}
@@ -91,6 +120,6 @@ describe ReportRunner do
       expect(report_runner_2.valid?).to be(false)
       expect(report_runner_2.errors).to eql(['\'unimplemented_dimension\' is not implemented in configuration file config/app.rb'])
     end
-
   end
+
 end

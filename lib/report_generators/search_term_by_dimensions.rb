@@ -4,7 +4,7 @@ require File.join(__dir__, '..', 'google_api_client')
 require File.join(__dir__, '..', '..', 'config', 'app')
 
 class SearchTermByDimensions
-  attr_accessor :queries, :clicks, :dimensions
+  attr_accessor :queries, :clicks, :dimension_data
 
   def initialize(options = {})
     @google_api_client  = GoogleApiClient.new(auth_file: options[:auth_file])
@@ -13,7 +13,7 @@ class SearchTermByDimensions
     @end_date      = options[:end_date]
     @output        = options[:output]
     @google_parent_id = options[:google_parent_id]
-    @dimensions    = options[:dimensions]
+    @dimension_data = options[:dimension_data]
     @queries       = []
     @clicks        = []
   end
@@ -37,18 +37,17 @@ class SearchTermByDimensions
   def get_events!()
     analytics_client = @google_api_client.analytics_client
 
-    query_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
-    click_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
+    query_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_query_sent}', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
+    click_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_clickthrough}', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
 
     if query_response.rows
       query_response.rows.each do |query_row|
         queries << QueryResponse.new({
-          search_term: query_row[0],
-          action: query_row[1],
-          searched_from: query_row[2],
-          searched_repo: query_row[3],
-          total_events: query_row[4].to_i,
-          unique_events: query_row[5].to_i
+          search_term: query_row.shift,
+          action: query_row.shift,
+          dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], query_row.shift]}.to_h,
+          total_events: query_row.shift.to_i,
+          unique_events: query_row.shift.to_i,
         })
       end
     end
@@ -56,20 +55,48 @@ class SearchTermByDimensions
     if click_response.rows
       click_response.rows.each do |click_row|
         clicks << ClickResponse.new({
-          search_term: click_row[0],
-          action: click_row[1],
-          searched_from: click_row[2],
-          searched_repo: click_row[3],
-          total_events: click_row[4].to_i,
-          unique_events: click_row[5].to_i,
-          mean_ordinality: click_row[6].to_f,
+          search_term: query_row.shift,
+          action: query_row.shift,
+          dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], query_row.shift]}.to_h,
+          total_events: query_row.shift.to_i,
+          unique_events: query_row.shift.to_i,
+          mean_ordinality: query_row.shift.to_f,
         })
       end
     end
   end
 
+  def dimensions_for_query_sent
+    dimensions_for_event_type(QUERY_SENT)
+  end
+
+  def dimensions_for_clickthrough
+    dimensions_for_event_type(CLICKTHROUGH)
+  end
+
+  def dimensions_for_event_type(event_type)
+    @dimension_data.select {|dimension| dimension[:events].include? event_type}
+  end
+ 
+  def ga_dimensions_string_for_event_type(event_type)
+    dimensions_for_event_type(event_type).map {|dimension| "ga:dimension#{dimension[:ga_index]}"}.join(',')
+  end
+  
+  def ga_dimensions_string_for_query_sent
+    ga_dimensions_string_for_event_type(QUERY_SENT)
+  end
+  
+  def ga_dimensions_string_for_clickthrough
+    ga_dimensions_string_for_event_type(CLICKTHROUGH)
+  end
+  
   def process_data_for_term(term)
-    events_processor = TermEventsProcessor.new(term: term, query_segments: query_events_for_term(term), click_segments: click_events_for_term(term))
+    events_processor = TermEventsProcessor.new(
+      term: term, 
+      dimensions: @dimension_data.map {|dim| dim[:name]},
+      query_segments: query_events_for_term(term), 
+      click_segments: click_events_for_term(term)
+    )
     events_processor.process
   end
 
@@ -187,20 +214,18 @@ class SearchTermByDimensions
 end
 
 class TermEventsProcessor
-  attr_accessor :term, :query_segments, :click_segments
+  attr_accessor :term, :query_segments, :click_segments, :dimensions
 
-  @@dimensions = CONFIG[:dimensions]
-
-  def initialize(term:, query_segments:, click_segments:)
+  def initialize(term:, dimensions:, query_segments:, click_segments:)
 
     @term = term
     @query_segments = query_segments
     @click_segments = click_segments
-
+    @dimensions = dimensions
   end
 
   def process
-    process_data_for_dimensions(@@dimensions.dup)
+    process_data_for_dimensions(dimensions.dup)
   end
 
   def process_data_for_dimensions(dimensions, values: {})
@@ -225,7 +250,7 @@ class TermEventsProcessor
   end
 
   def get_values(dimension)
-    (click_segments.map(&dimension) + query_segments.map(&dimension)).uniq.sort
+    (click_segments.map {|segment| segment.dimensions[dimension]} + query_segments.map {|segment| segment.dimensions[dimension]}).uniq.sort
   end
 
   def segments_for_values(segment_type, values)
@@ -233,7 +258,7 @@ class TermEventsProcessor
       self.send(segment_type).find_all do |segment|
       # return all segments which match the appropriate values
       values.each_pair.all? do |dimension, value|
-        segment.send(dimension) == value
+        segment.dimensions[dimension] == value
       end
     end
   end
@@ -247,7 +272,7 @@ class TermEventsProcessor
     row = []
     row << term
 
-    row.concat @@dimensions.map { |dimension| values[dimension] }
+    row.concat dimensions.map { |dimension| values[dimension] }
     
     total_queries = matching_query_segments.inject(0) { |sum, segment| sum += segment.total_events }
     row << total_queries

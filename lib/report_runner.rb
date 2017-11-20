@@ -45,7 +45,7 @@ class ReportRunner
   end
 
   def data_for_dimensions()
-    @dimensions.map { |dimension| {dimension => CONFIG[:reportable_dimensions][dimension]} }
+    @dimensions.map { |dimension| {name: dimension}.merge(CONFIG[:reportable_dimensions][dimension]) }
   end
 
 private
@@ -80,8 +80,8 @@ private
 
   def config_for_dimension_valid?(dimension)
     dimension_config = CONFIG[:reportable_dimensions][dimension]
-    unless dimension_config.has_key?(:events) and dimension_config.has_key?(:ga_dimension)
-      @errors << "'#{dimension}' in config does not have both :events and a :ga_dimension'"
+    unless dimension_config.has_key?(:events) and dimension_config.has_key?(:ga_index)
+      @errors << "'#{dimension}' in config does not have both :events and a :ga_index'"
     end
   end
 

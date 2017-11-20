@@ -4,7 +4,7 @@ CLICKTHROUGH = 'Clickthrough'
 CONFIG = {
   reportable_dimensions: {
     searched_repo: {
-      ga_dimension: 2,
+      ga_index: 2,
       events: [QUERY_SENT, CLICKTHROUGH]
     },
   },

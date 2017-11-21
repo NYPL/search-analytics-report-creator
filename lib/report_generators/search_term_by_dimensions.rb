@@ -244,9 +244,39 @@ class TermEventsProcessor
 
     end
 
-    # calculate_aggregates_for_dimension(event_rows, this_dimension)
+    # calculate_aggregates_for_dimension!(this_dimension, values, event_rows)
     event_rows
 
+  end
+
+  def calculate_aggregates_for_dimension!(dimension, values, rows)
+    aggregate_row = [term]
+
+    aggregate_row.concat(@dimensions.map {|dim| values[dim] or 'ALL'})
+
+    this_dimension_index = @dimensions.index dimension
+    rows_to_aggregate = rows.select { |row| 
+      row[1, @dimensions.length].map.with_index.all? { |value, i|
+        next true if i == this_dimension_index
+        value == values[dimensions[i]]
+      }
+    }
+
+    total_queries_index = dimensions.length + 1
+    total_clicks_index = total_queries_index + 1
+    aggregates = rows_to_aggregate.inject({total_queries: 0, total_clicks: 0}) { |agg, row|
+      agg[:total_queries] += row[total_queries_index]
+      agg[:total_clicks] += row[total_clicks_index]
+      agg
+    }
+    
+    aggregate_row << aggregates[:total_queries]
+    aggregate_row << aggregates[:total_clicks]
+    aggregate_row << (aggregates[:total_clicks].to_f / aggregates[:total_queries]).round(2)
+    aggregate_row << (aggregates[:total_clicks].to_f / aggregates[:total_queries] / aggregates[:total_queries]).round(4)
+    aggregate_row << self.class.mean_ordinality_over_segments(rows_to_aggregate.map {|row| [row[total_clicks_index], row[-1]]}).round(1)
+
+    rows << aggregate_row
   end
 
   def get_values(dimension)
@@ -284,14 +314,14 @@ class TermEventsProcessor
     row << ((total_clicks.to_f / total_queries).round(2) if total_queries > 0)
     row << ((total_clicks.to_f / total_queries / total_queries).round(4) if total_queries > 0)
     
-    row << (self.class.mean_ordinality_over_segments(matching_click_segments)).round(1)
+    row << (self.class.mean_ordinality_over_segments(matching_click_segments.map {|segment| [segment.total_events, segment.mean_ordinality]})).round(1)
 
   end
 
-  def self.mean_ordinality_over_segments(clickthrough_segments)
-    ordinality_fraction = clickthrough_segments.inject({ordinality_total: 0, click_total: 0}) do |sum, click|
-      sum[:ordinality_total] += click.mean_ordinality * click.total_events
-      sum[:click_total] += click.total_events
+  def self.mean_ordinality_over_segments(click_ordinality_arrays)
+    ordinality_fraction = click_ordinality_arrays.inject({ordinality_total: 0, click_total: 0}) do |sum, click|
+      sum[:ordinality_total] += click[0] * click[1]
+      sum[:click_total] += click[0]
       sum
     end
 

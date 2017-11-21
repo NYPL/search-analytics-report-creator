@@ -24,10 +24,12 @@ describe TermEventsProcessor do
 
   describe "ordinality" do
     it "will calculate mean ordinality across multiple clicks segmented by repo" do
-      expect(TermEventsProcessor.mean_ordinality_over_segments(@events_processor.click_segments[0..2])).to eql(240.0/111)
+      click_ordinalities = @events_processor.click_segments[0..2].map {|segment| [segment.total_events, segment.mean_ordinality]}
+      expect(TermEventsProcessor.mean_ordinality_over_segments(click_ordinalities)).to eql(240.0/111)
     end
     it "will return same average ordinality if one segment is given" do
-      expect(TermEventsProcessor.mean_ordinality_over_segments(@events_processor.click_segments[1..1])).to eql(3.0)
+      click_ordinalities = @events_processor.click_segments[1..1].map {|segment| [segment.total_events, segment.mean_ordinality]}
+      expect(TermEventsProcessor.mean_ordinality_over_segments(click_ordinalities)).to eql(3.0)
     end
   end
 
@@ -117,4 +119,28 @@ describe TermEventsProcessor do
 
   end
 
+  describe "calculate_aggregates_for_dimension" do
+    let(:events_processor) {
+      TermEventsProcessor.new(click_segments: [], query_segments: [], term: 'xx', dimensions: [:dim1, :dim2, :dim3])
+    }
+    
+    it "will sum values for a specific dimension" do
+      segment_rows = [
+        ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+        ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+        ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+      ]
+     
+
+      events_processor.calculate_aggregates_for_dimension!(:dim3, {dim1: 'dim1_a', dim2: 'dim2_a'}, segment_rows)
+      expect(segment_rows).to eql(
+        [
+          ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+          ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+          ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+          ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
+        ]
+      )
+    end
+  end
 end

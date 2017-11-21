@@ -244,7 +244,7 @@ class TermEventsProcessor
 
     end
 
-    # calculate_aggregates_for_dimension!(this_dimension, values, event_rows)
+    calculate_aggregates_for_dimension!(this_dimension, values.delete(this_dimension), event_rows)
     event_rows
 
   end
@@ -255,13 +255,15 @@ class TermEventsProcessor
     aggregate_row.concat(@dimensions.map {|dim| values[dim] or 'ALL'})
 
     this_dimension_index = @dimensions.index dimension
+    aggregate_row_dimension_values = aggregate_row[1, @dimensions.length]
+
     rows_to_aggregate = rows.select { |row| 
       row[1, @dimensions.length].map.with_index.all? { |value, i|
         next true if i == this_dimension_index
-        value == values[dimensions[i]]
+        value == aggregate_row_dimension_values[i]
       }
     }
-
+    
     total_queries_index = dimensions.length + 1
     total_clicks_index = total_queries_index + 1
     aggregates = rows_to_aggregate.inject({total_queries: 0, total_clicks: 0}) { |agg, row|

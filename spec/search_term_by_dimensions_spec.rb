@@ -55,18 +55,26 @@ describe SearchTermByDimensions do
 
     it "will produce an array of results for each permutation " do
       results = report.results_for_terms(['Anchorage', 'Best Books 2017', 'Boney M'])
-
+      require 'json'; puts JSON.dump(results)
       # These are sorted alphabetically but will be in order of queries once we're doing aggregates.
       expect(results).to eql([
         ['Anchorage', 'DrupalSearch', 'HeaderSearch', 0, 1, nil, nil, 6.0],
+        ['Anchorage', 'DrupalSearch', 'ALL', 0, 1, nil, nil, 6.0],
+        ['Anchorage', 'ALL', 'ALL', 0, 1, nil, nil, 6.0],
         ['Best Books 2017', 'DrupalSearch', 'DrupalSearchForm', 43, 37, 0.86, 0.0200, 3.4],
         ['Best Books 2017', 'DrupalSearch', 'HeaderSearch', 33, 26, 0.79, 0.0239, 1.8],
+        ['Best Books 2017', 'DrupalSearch', 'ALL', 76, 63, 0.83, 0.0109, 2.7],
         ['Best Books 2017', 'Encore', 'EncoreSearchForm', 2, 0, 0.0, 0.000, 0.0],
         ['Best Books 2017', 'Encore', 'HeaderSearch', 6, 1, 0.17, 0.0278, 4.0],
+        ['Best Books 2017', 'Encore', 'ALL', 8, 1, 0.13, 0.0156, 4.0],
+        ['Best Books 2017', 'ALL', 'ALL', 84, 64, 0.76, 0.0091, 2.7],
         ['Boney M', 'DrupalSearch', 'DrupalSearchForm', 1, 0, 0.0, 0.000, 0.0],
         ['Boney M', 'DrupalSearch', 'HeaderSearch', 2, 0, 0.0, 0.000, 0.0],
+        ['Boney M', 'DrupalSearch', 'ALL', 3, 0, 0.0, 0.000, 0.0],
         ['Boney M', 'Encore', 'EncoreSearchForm', 5, 3, 0.6, 0.1200, 4.1],
         ['Boney M', 'Encore', 'HeaderSearch', 3, 2, 0.67, 0.2222, 2.0],
+        ['Boney M', 'Encore', 'ALL', 8, 5, 0.63, 0.0781, 3.3],
+        ['Boney M', 'ALL', 'ALL', 11, 5, 0.45, 0.0413, 3.3],
       ])
     end
 

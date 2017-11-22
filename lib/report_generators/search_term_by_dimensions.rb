@@ -37,8 +37,8 @@ class SearchTermByDimensions
   def get_events!()
     analytics_client = @google_api_client.analytics_client
 
-    query_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_query_sent}', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
-    click_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_clickthrough}', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
+    query_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: "ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_query_sent}", max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
+    click_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: "ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_clickthrough}", max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
 
     if query_response.rows
       query_response.rows.each do |query_row|
@@ -55,12 +55,12 @@ class SearchTermByDimensions
     if click_response.rows
       click_response.rows.each do |click_row|
         clicks << ClickResponse.new({
-          search_term: query_row.shift,
-          action: query_row.shift,
-          dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], query_row.shift]}.to_h,
-          total_events: query_row.shift.to_i,
-          unique_events: query_row.shift.to_i,
-          mean_ordinality: query_row.shift.to_f,
+          search_term: click_row.shift,
+          action: click_row.shift,
+          dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], click_row.shift]}.to_h,
+          total_events: click_row.shift.to_i,
+          unique_events: click_row.shift.to_i,
+          mean_ordinality: click_row.shift.to_f,
         })
       end
     end

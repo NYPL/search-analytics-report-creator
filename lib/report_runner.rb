@@ -38,7 +38,7 @@ class ReportRunner
       end_date: @end_date,
       output: @output,
       google_parent_id: @google_parent_id,
-      dimensions: data_for_dimensions(@dimensions),
+      dimension_data: data_for_dimensions(),
     })
 
     report_generator.generate_report!

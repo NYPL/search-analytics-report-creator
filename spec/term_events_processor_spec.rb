@@ -103,6 +103,7 @@ describe TermEventsProcessor do
         ['arbitrary', 'repo1', 'from2', 3, 1, 0.33, 0.1111, 10.0],
         ['arbitrary', 'repo1', 'from3', 130, 100, 0.77, 0.0059, 2.0],
         ['arbitrary', 'repo1', 'from4', 30, 11, 0.37, 0.0122, 3.6],
+        ['arbitrary', 'repo1', 'ALL', 163, 112, 0.69, 0.0042, 2.2],
       ])
     end
 
@@ -112,8 +113,12 @@ describe TermEventsProcessor do
         ['arbitrary', 'repo1', 'from2', 3, 1, 0.33, 0.1111, 10.0],
         ['arbitrary', 'repo1', 'from3', 130, 100, 0.77, 0.0059, 2.0],
         ['arbitrary', 'repo1', 'from4', 30, 11, 0.37, 0.0122, 3.6],
+        ['arbitrary', 'repo1', 'ALL', 163, 112, 0.69, 0.0042, 2.2],
         ['arbitrary', 'repo2', 'from1', 1, 0, 0.00, 0.0000, 0.0],
+        ['arbitrary', 'repo2', 'ALL', 1, 0, 0.00, 0.0000, 0.0],
         ['arbitrary', 'repo3', 'from3', 122, 100, 0.82, 0.0067, 2.0],
+        ['arbitrary', 'repo3', 'ALL', 122, 100, 0.82, 0.0067, 2.0],
+        ['arbitrary', 'ALL', 'ALL', 286, 212, 0.74, 0.0026, 2.1],
       ])
     end
 

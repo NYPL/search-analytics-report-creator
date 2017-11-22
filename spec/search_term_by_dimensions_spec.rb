@@ -55,8 +55,7 @@ describe SearchTermByDimensions do
 
     it "will produce an array of results for each permutation " do
       results = report.results_for_terms(['Anchorage', 'Best Books 2017', 'Boney M'])
-      require 'json'; puts JSON.dump(results)
-      # These are sorted alphabetically but will be in order of queries once we're doing aggregates.
+      # Order is determined by order of terms (which should be in importance order from GA)
       expect(results).to eql([
         ['Anchorage', 'DrupalSearch', 'HeaderSearch', 0, 1, nil, nil, 6.0],
         ['Anchorage', 'DrupalSearch', 'ALL', 0, 1, nil, nil, 6.0],

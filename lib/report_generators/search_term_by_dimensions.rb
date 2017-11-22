@@ -237,21 +237,19 @@ class TermEventsProcessor
 
     event_rows = dimension_values.inject([]) do |rows, value|
 
-      values[this_dimension] = value
-      rows.concat(process_data_for_dimensions(dimensions.dup, values: values).compact)
+      rows.concat(
+        process_data_for_dimensions(dimensions.dup, values: values.merge({this_dimension => value})).compact
+      )
       
-      rows
-
     end
 
-    calculate_aggregates_for_dimension!(this_dimension, values.delete(this_dimension), event_rows)
+    calculate_aggregates_for_dimension!(this_dimension, values, event_rows)
     event_rows
 
   end
 
   def calculate_aggregates_for_dimension!(dimension, values, rows)
     aggregate_row = [term]
-
     aggregate_row.concat(@dimensions.map {|dim| values[dim] or 'ALL'})
 
     this_dimension_index = @dimensions.index dimension
@@ -274,11 +272,19 @@ class TermEventsProcessor
     
     aggregate_row << aggregates[:total_queries]
     aggregate_row << aggregates[:total_clicks]
-    aggregate_row << (aggregates[:total_clicks].to_f / aggregates[:total_queries]).round(2)
-    aggregate_row << (aggregates[:total_clicks].to_f / aggregates[:total_queries] / aggregates[:total_queries]).round(4)
+
+    if aggregates[:total_queries] > 0
+      ctr = aggregates[:total_clicks].to_f / aggregates[:total_queries]
+      aggregate_row << ctr.round(2)
+      aggregate_row << (ctr / aggregates[:total_queries]).round(4)
+    else
+      aggregate_row.concat([nil, nil])
+    end
+
     aggregate_row << self.class.mean_ordinality_over_segments(rows_to_aggregate.map {|row| [row[total_clicks_index], row[-1]]}).round(1)
 
     rows << aggregate_row
+    nil 
   end
 
   def get_values(dimension)
@@ -326,6 +332,8 @@ class TermEventsProcessor
       sum[:click_total] += click[0]
       sum
     end
+
+    return 0.0 if ordinality_fraction[:click_total] == 0
 
     ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total] rescue 0
   end

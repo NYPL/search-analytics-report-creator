@@ -229,12 +229,17 @@ class TermEventsProcessor
   end
 
   def process_data_for_dimensions(dimensions, values: {})
+    # Recursively find all permutations of values from requested report dimensions, 
+    #   and, once all dimensions are specified, return a results row for those values
     return [data_row_for_values(values)] if dimensions.empty?
 
+    # For the next dimension
     this_dimension = dimensions.shift
 
+    # Find all possible values
     dimension_values = get_values(this_dimension)
 
+    # Recursively call method with each dimension value in turn
     event_rows = dimension_values.inject([]) do |rows, value|
 
       rows.concat(
@@ -243,25 +248,32 @@ class TermEventsProcessor
       
     end
 
+    # Calculate the aggregate values for the dimension just iterated over
     calculate_aggregates_for_dimension!(this_dimension, values, event_rows)
     event_rows
 
   end
 
   def calculate_aggregates_for_dimension!(dimension, values, rows)
+    # Take the result rows, and the dimension values used to calculate them,
+    #   and calculate aggregate totals for the given dimension. All subsequent
+    #   dimensions (i.e., those after the specified dimension in the @dimensions 
+    #   property) will be set to 'ALL'
+
+    # aggregate row will look like: 
+    #   ['search term', dimension1 ... dimensionN, query_total, click_total, ctr, wctr, mean_ordinality]
+    # An example would be
+    #   ['banana', 'Encore', 'ALL', 17, 8, 0.47, 0.0277, 3.8]
+
+    # Start creating the results row for the aggregate values
     aggregate_row = [term]
+    # Add dimension values to the row; dimension up to the aggregate dimension will
+    #   use value in values has; aggregate dimension and all subsequent will be 'ALL'
     aggregate_row.concat(@dimensions.map {|dim| values[dim] or 'ALL'})
 
-    this_dimension_index = @dimensions.index dimension
-    aggregate_row_dimension_values = aggregate_row[1, @dimensions.length]
+    rows_to_aggregate = matching_rows_to_aggregate(dimension, aggregate_row[1..-1], rows)
 
-    rows_to_aggregate = rows.select { |row| 
-      row[1, @dimensions.length].map.with_index.all? { |value, i|
-        next true if i == this_dimension_index
-        value == aggregate_row_dimension_values[i]
-      }
-    }
-    
+   # Now calculate the regular values
     total_queries_index = dimensions.length + 1
     total_clicks_index = total_queries_index + 1
     aggregates = rows_to_aggregate.inject({total_queries: 0, total_clicks: 0}) { |agg, row|
@@ -287,13 +299,31 @@ class TermEventsProcessor
     nil 
   end
 
+  def matching_rows_to_aggregate(dimension_to_aggregate, aggregate_dimension_values, rows)
+    # Return all rows we want to aggregate over
+    dimension_to_aggregate_index = @dimensions.index dimension_to_aggregate
+    
+    # The rows we wish to aggregate must match all values in aggregate_row_dimension_values
+    #   except for the aggregate dimension 
+    rows.select { |row| 
+      this_row_dimensions = row[1, @dimensions.length]
+      this_row_dimensions.map.with_index.all? { |value, i|
+        # Accept all values of the aggregate dimension
+        next true if i == dimension_to_aggregate_index
+        # Only accept rows which have same dimension value as that we wish to aggregate
+        value == aggregate_dimension_values[i]
+      }
+    }
+  end 
+  
   def get_values(dimension)
+    # return all available values for the given dimension
     (click_segments.map {|segment| segment.dimensions[dimension]} + query_segments.map {|segment| segment.dimensions[dimension]}).uniq.sort
   end
 
   def segments_for_values(segment_type, values)
-    # For each event segment
-      self.send(segment_type).find_all do |segment|
+    # return the segments of specified type (query or click) matching dimension values given
+    self.send(segment_type).find_all do |segment|
       # return all segments which match the appropriate values
       values.each_pair.all? do |dimension, value|
         segment.dimensions[dimension] == value
@@ -302,6 +332,8 @@ class TermEventsProcessor
   end
 
   def data_row_for_values(values)
+    # for a set of dimension values, find matching query and click segments, and calculate 
+    #   total queries, clicks CTR, WCTR, mean ordinality and return row with these values
     matching_query_segments = segments_for_values(:query_segments, values)
     matching_click_segments = segments_for_values(:click_segments, values)
 
@@ -327,6 +359,7 @@ class TermEventsProcessor
   end
 
   def self.mean_ordinality_over_segments(click_ordinality_arrays)
+    # Take pairs of the average ordinality and the number clicks and calculate mean ordinality for them
     ordinality_fraction = click_ordinality_arrays.inject({ordinality_total: 0, click_total: 0}) do |sum, click|
       sum[:ordinality_total] += click[0] * click[1]
       sum[:click_total] += click[0]

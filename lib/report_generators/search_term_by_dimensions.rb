@@ -153,58 +153,58 @@ class SearchTermByDimensions
       requests: [
         {add_filter_view: {
           filter: {
-            title: 'all query summary',
+            title: 'All Query Summary',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
-              '2': {
-                hidden_values: ['encore', 'drupalsearch', 'betasearch', 'beta search', 'catalog', 'sitesearch']
+              '1': {
+                hidden_values: ['Encore', 'DrupalSearch', 'BetaSearch']
               }
             }
           }
         }},
         {add_filter_view: {
           filter: {
-            title: 'encore — header search vs browse',
+            title: 'Encore — Header Search vs Browse',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
-              '2': {
-                hidden_values: ['all', 'drupalsearch', 'betasearch', 'beta search', 'catalog', 'sitesearch']
+              '1': {
+                hidden_values: ['ALL', 'DrupalSearch', 'BetaSearch']
               },
-              '3': {
-                hidden_values: ['all', 'unknown']
+              '2': {
+                hidden_values: ['ALL', 'Unknown']
               }
             }
           }
         }},
         {add_filter_view: {
           filter: {
-            title: 'header search',
+            title: 'Header Search',
+            range: {
+              sheet_id: spreadsheet.sheets[0].properties.sheet_id
+            },
+            criteria: {
+              '1': {
+                hidden_values: ['ALL']
+              },
+              '2': {
+                hidden_values: ['ALL', 'EncoreSearchForm', 'Unknown']
+              }
+            }
+          }
+        }},
+        {add_filter_view: {
+          filter: {
+            title: 'Unknown Where Searched From',
             range: {
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
               '2': {
-                hidden_values: ['all', 'catalog']
-              },
-              '3': {
-                hidden_values: ['all', 'encoresearchform', 'unknown']
-              }
-            }
-          }
-        }},
-        {add_filter_view: {
-          filter: {
-            title: 'unknown where searched from',
-            range: {
-              sheet_id: spreadsheet.sheets[0].properties.sheet_id
-            },
-            criteria: {
-              '3': {
-                hidden_values: ['all', 'headersearch', 'encoresearchform']
+                hidden_values: ['ALL', 'HeaderSearch', 'EncoreSearchForm']
               }
             }
           }

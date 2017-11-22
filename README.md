@@ -32,14 +32,15 @@ USAGE: ruby ./script/create_analytics_reports.rb [options]
     -o, --output OUTPUT              output can be: /path/to/a/dir/ or "google-sheets"
     -g PARENTFOLDERID,               id of google drive folder to put report in
         --google-parent-id
+    -d --dimensions                  comma separated names of dimensions to include in the report
     -h, --help                       Prints this help
 ```
 
 Examples:
 
-`ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o ~/Desktop/`
+`ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -d SearchedRepo,SearchedFrom -o ~/Desktop/`
 
-`ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -o google-sheets --google-parent-id SomeGoogleParentFolderId`
+`ruby script/create_analytics_report.rb --id ga:xxx --auth-file ./config/google_auth.json --start-date 2017-10-26 --end-date 2017-11-02 -d SearchedRepo,SearchedFrom -o google-sheets --google-parent-id SomeGoogleParentFolderId`
 
 ## Git & Release Workflow
 

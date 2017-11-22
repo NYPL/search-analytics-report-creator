@@ -3,6 +3,5 @@ describe QueryResponse do
   it { is_expected.to respond_to(:action)        }
   it { is_expected.to respond_to(:total_events)  }
   it { is_expected.to respond_to(:unique_events) }
-  it { is_expected.to respond_to(:searched_from)  }
-  it { is_expected.to respond_to(:searched_repo)  }
+  it { is_expected.to respond_to(:dimensions)  }
 end

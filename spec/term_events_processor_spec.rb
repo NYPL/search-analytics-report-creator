@@ -4,22 +4,22 @@ describe TermEventsProcessor do
 
   before(:example) do
     clickthrough_segments = [
-      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetZ', total_events: 1, mean_ordinality: 10.0),
-      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetA', total_events: 10, mean_ordinality: 3.0),
-      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from3', click_target: 'targetH', total_events: 100, mean_ordinality: 2.0),
-      ClickResponse.new(searched_repo: 'repo1', searched_from: 'from2', click_target: 'targetZ', total_events: 1, mean_ordinality: 10.0),
-      ClickResponse.new(searched_repo: 'repo3', searched_from: 'from3', click_target: 'targetH', total_events: 100, mean_ordinality: 2.0),
+      ClickResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetZ'}, total_events: 1, mean_ordinality: 10.0),
+      ClickResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetA'}, total_events: 10, mean_ordinality: 3.0),
+      ClickResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from3', click_target: 'targetH'}, total_events: 100, mean_ordinality: 2.0),
+      ClickResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from2', click_target: 'targetZ'}, total_events: 1, mean_ordinality: 10.0),
+      ClickResponse.new(dimensions: {searched_repo: 'repo3', searched_from: 'from3', click_target: 'targetH'}, total_events: 100, mean_ordinality: 2.0),
     ]
 
     query_segments = [
-      QueryResponse.new(searched_repo: 'repo1', searched_from: 'from2', total_events: 3),
-      QueryResponse.new(searched_repo: 'repo1', searched_from: 'from3', total_events: 130),
-      QueryResponse.new(searched_repo: 'repo1', searched_from: 'from4', total_events: 30),
-      QueryResponse.new(searched_repo: 'repo2', searched_from: 'from1', total_events: 1),
-      QueryResponse.new(searched_repo: 'repo3', searched_from: 'from3', total_events: 122),
+      QueryResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from2'}, total_events: 3),
+      QueryResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from3'}, total_events: 130),
+      QueryResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from4'}, total_events: 30),
+      QueryResponse.new(dimensions: {searched_repo: 'repo2', searched_from: 'from1'}, total_events: 1),
+      QueryResponse.new(dimensions: {searched_repo: 'repo3', searched_from: 'from3'}, total_events: 122),
     ]
 
-    @events_processor = TermEventsProcessor.new(click_segments: clickthrough_segments, query_segments: query_segments, term: 'arbitrary')
+    @events_processor = TermEventsProcessor.new(click_segments: clickthrough_segments, query_segments: query_segments, term: 'arbitrary', dimensions: [:searched_repo, :searched_from])
   end
 
   describe "ordinality" do
@@ -72,7 +72,7 @@ describe TermEventsProcessor do
     end
 
     it "will return appropriate values if we have clickthrough events but no queries" do
-      @events_processor.click_segments << instance_double("ClickResponse", searched_repo: 'repo1', searched_from: 'unwired_form', total_events: 5, mean_ordinality: 2.0)
+      @events_processor.click_segments << ClickResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'unwired_form'}, total_events: 5, mean_ordinality: 2.0)
       result_row = @events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'unwired_form'})
       expect(result_row).to eql(['arbitrary', 'repo1', 'unwired_form', 0, 5, nil, nil, 2.0])
     end

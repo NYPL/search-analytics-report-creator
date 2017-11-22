@@ -266,7 +266,6 @@ private
   def get_query_rows(analytics_client, start_index = 1, response_rows = [])
     response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents", start_index: start_index)
 
-    total_found = (response.rows && !response_rows.empty?) ? 0 : (response_rows.length + response.rows.length)
     @logger.info("Paginated find: #{response_rows.length + response.rows.length} of #{response.total_results} queries")
 
     # This is the last iteration, add these rows and return

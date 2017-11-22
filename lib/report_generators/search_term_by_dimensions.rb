@@ -109,14 +109,18 @@ class SearchTermByDimensions
   end
 
   def results_for_terms(query_terms)
-    query_terms.sort.inject([]) { |running_results, query_term| running_results.concat(process_data_for_term(query_term)) }
+    query_terms.inject([]) { |running_results, query_term| running_results.concat(process_data_for_term(query_term)) }
   end
     
   def generate_report!
     get_events!
     
-    all_query_terms = queries.map(&:search_term).uniq
-    all_results = results_for_terms(all_query_terms)
+    sorted_query_terms = queries.inject(Hash.new(0)) {|query_totals, query| 
+      query_totals[query.search_term] += query.total_events
+      query_totals
+    }.to_a.sort {|a,b| b[1] <=> a[1]}.map {|query_total_pair| query_total_pair[0]}
+    
+    all_results = results_for_terms(sorted_query_terms)
     
     CSV.open(report_output_path, 'wb') do |csv|
       headers = ['search term', 'searched repo', 'searched from', 'total searches', 'total clicks', 'ctr', 'wctr', 'mean ordinality']

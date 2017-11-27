@@ -31,10 +31,9 @@ class SearchTermByRepoAndSearchedFrom
   end
 
   def generate_report!
-    analytics_client = @google_api_client.analytics_client
 
-    query_rows = get_query_rows(analytics_client)
-    click_rows = get_click_rows(analytics_client)
+    query_rows = get_query_rows
+    click_rows = get_click_rows
 
     queries = []
     clicks  = []
@@ -248,22 +247,26 @@ class SearchTermByRepoAndSearchedFrom
 
 private
 
-  def get_click_rows(analytics_client, start_index = 1, response_rows = [])
-    response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel", start_index: start_index)
+  def analytics_client
+    @analytics_client ||= @google_api_client.analytics_client
+  end
 
+  def get_click_rows(start_index = 1, response_rows = [])
+    response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel", start_index: start_index)
+    
     @logger.info("Paginated find: #{response_rows.length + response.rows.length} of #{response.total_results} clicks")
     # This is the last iteration, add these rows and return
     if !response.next_link
       response_rows.concat(response.rows)
     else
       next_index = CGI.parse(URI.parse(response.next_link).query)["start-index"].first
-      get_click_rows(analytics_client, next_index, response_rows.concat(response.rows))
+      get_click_rows(next_index, response_rows.concat(response.rows))
     end
 
     response_rows
   end
 
-  def get_query_rows(analytics_client, start_index = 1, response_rows = [])
+  def get_query_rows(start_index = 1, response_rows = [])
     response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: 'ga:eventLabel,ga:eventAction,ga:dimension1,ga:dimension2', max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents", start_index: start_index)
 
     @logger.info("Paginated find: #{response_rows.length + response.rows.length} of #{response.total_results} queries")
@@ -273,7 +276,7 @@ private
       response_rows.concat(response.rows)
     else
       next_index = CGI.parse(URI.parse(response.next_link).query)["start-index"].first
-      get_query_rows(analytics_client, next_index, response_rows.concat(response.rows))
+      get_query_rows(next_index, response_rows.concat(response.rows))
     end
 
     response_rows

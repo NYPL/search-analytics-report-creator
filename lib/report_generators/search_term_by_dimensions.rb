@@ -1,5 +1,6 @@
 require 'date'
 require File.join(__dir__, '..', 'google_api_client')
+require File.join(File.absolute_path(__dir__), '..', 'json_logger')
 
 require File.join(__dir__, '..', '..', 'config', 'app')
 
@@ -16,6 +17,7 @@ class SearchTermByDimensions
     @dimension_data = options[:dimension_data]
     @queries       = []
     @clicks        = []
+    @logger = JsonLogger.new.logger
   end
 
   def report_basename
@@ -35,34 +37,28 @@ class SearchTermByDimensions
   end
 
   def get_events!()
-    analytics_client = @google_api_client.analytics_client
+    query_rows = get_query_rows
+    click_rows = get_click_rows
 
-    query_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents', dimensions: "ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_query_sent}", max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==QuerySent", sort: "-ga:totalEvents")
-    click_response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: "ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_clickthrough}", max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==Clickthrough", sort: "ga:eventLabel")
-
-    if query_response.rows
-      query_response.rows.each do |query_row|
-        queries << QueryResponse.new({
-          search_term: query_row.shift,
-          action: query_row.shift,
-          dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], query_row.shift]}.to_h,
-          total_events: query_row.shift.to_i,
-          unique_events: query_row.shift.to_i,
-        })
-      end
+    query_rows.each do |query_row|
+      queries << QueryResponse.new({
+        search_term: query_row.shift,
+        action: query_row.shift,
+        dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], query_row.shift]}.to_h,
+        total_events: query_row.shift.to_i,
+        unique_events: query_row.shift.to_i,
+      })
     end
 
-    if click_response.rows
-      click_response.rows.each do |click_row|
-        clicks << ClickResponse.new({
-          search_term: click_row.shift,
-          action: click_row.shift,
-          dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], click_row.shift]}.to_h,
-          total_events: click_row.shift.to_i,
-          unique_events: click_row.shift.to_i,
-          mean_ordinality: click_row.shift.to_f,
-        })
-      end
+    click_rows.each do |click_row|
+      clicks << ClickResponse.new({
+        search_term: click_row.shift,
+        action: click_row.shift,
+        dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], click_row.shift]}.to_h,
+        total_events: click_row.shift.to_i,
+        unique_events: click_row.shift.to_i,
+        mean_ordinality: click_row.shift.to_f,
+      })
     end
   end
 
@@ -80,14 +76,6 @@ class SearchTermByDimensions
  
   def ga_dimensions_string_for_event_type(event_type)
     dimensions_for_event_type(event_type).map {|dimension| "ga:dimension#{dimension[:ga_index]}"}.join(',')
-  end
-  
-  def ga_dimensions_string_for_query_sent
-    ga_dimensions_string_for_event_type(QUERY_SENT)
-  end
-  
-  def ga_dimensions_string_for_clickthrough
-    ga_dimensions_string_for_event_type(CLICKTHROUGH)
   end
   
   def process_data_for_term(term)
@@ -114,11 +102,11 @@ class SearchTermByDimensions
     
   def generate_report!
     get_events!
-    
+
     sorted_query_terms = queries.inject(Hash.new(0)) {|query_totals, query| 
       query_totals[query.search_term] += query.total_events
       query_totals
-    }.to_a.sort {|a,b| b[1] <=> a[1]}.map {|query_total_pair| query_total_pair[0]}
+    }.to_a.sort_by { |term, count| [count, term] }.reverse.map {|query_total_pair| query_total_pair[0]}
     
     all_results = results_for_terms(sorted_query_terms)
     
@@ -215,7 +203,35 @@ class SearchTermByDimensions
     sheets_client.batch_update_spreadsheet(file.id, requests, {})
   end
 
-end
+private
+
+  def analytics_client
+    @analytics_client ||= @google_api_client.analytics_client
+  end
+
+  def get_event_rows(event_type, start_index = 1, response_rows = [])
+    response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: "ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_event_type(event_type)}", max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==#{event_type}", sort: "ga:eventLabel", start_index: start_index)
+    @logger.info("Paginated find: #{response_rows.length + response.rows.length} of #{response.total_results} #{event_type} events")
+    # This is the last iteration, add these rows and return
+    if !response.next_link
+      response_rows.concat(response.rows)
+    else
+      next_index = CGI.parse(URI.parse(response.next_link).query)["start-index"].first
+      get_event_rows(event_type, next_index, response_rows.concat(response.rows))
+    end
+
+    response_rows
+  end
+
+  def get_click_rows
+    get_event_rows(CLICKTHROUGH)
+  end
+
+  def get_query_rows
+    get_event_rows(QUERY_SENT)
+  end
+
+end 
 
 class TermEventsProcessor
   attr_accessor :term, :query_segments, :click_segments, :dimensions
@@ -375,4 +391,4 @@ class TermEventsProcessor
     ordinality_fraction[:ordinality_total] / ordinality_fraction[:click_total] rescue 0
   end
 
-end 
+end

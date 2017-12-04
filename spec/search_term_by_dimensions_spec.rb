@@ -92,9 +92,7 @@ describe SearchTermByDimensions do
       report = SearchTermByDimensions.new(auth_file: path_to_auth, dimension_data: dimensions_data)
 
       expect(report.ga_dimensions_string_for_event_type(CLICKTHROUGH)).to eql('ga:dimension7')
-      expect(report.ga_dimensions_string_for_clickthrough).to eql('ga:dimension7')
       expect(report.ga_dimensions_string_for_event_type(QUERY_SENT)).to eql('ga:dimension3,ga:dimension7,ga:dimension5')
-      expect(report.ga_dimensions_string_for_query_sent).to eql('ga:dimension3,ga:dimension7,ga:dimension5')
 
     end
 

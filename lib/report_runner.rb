@@ -3,7 +3,7 @@ Dir[File.join(File.dirname(__FILE__), 'report_generators', '*.rb')].each {|file|
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each {|file| require file }
 
 class ReportRunner
-  attr_reader :errors
+  attr_reader :dimensions, :errors
   attr_accessor :google_parent_id
 
   def initialize(options = {})
@@ -14,33 +14,38 @@ class ReportRunner
     @auth_file     = options[:auth_file]
     @output        = options[:output]
     @google_parent_id = options[:google_parent_id]
+    @dimensions = options[:dimensions] || []
   end
 
   def valid?
     @errors = []
-    checks = [
-      has_required_attribute?(:@ga_profile_id),
-      has_required_attribute?(:@start_date),
-      has_required_attribute?(:@end_date),
-      has_required_attribute?(:@output),
-      has_required_attribute?(:@auth_file),
-      check_google_parent_id?
-    ]
+    has_required_attribute?(:@ga_profile_id)
+    has_required_attribute?(:@start_date)
+    has_required_attribute?(:@end_date)
+    has_required_attribute?(:@output)
+    has_required_attribute?(:@auth_file)
+    check_google_parent_id?
+    dimensions_valid?
 
     @errors.empty?
   end
 
   def generate_report
-    report_generator = SearchTermByRepoAndSearchedFrom.new({
+    report_generator = SearchTermByDimensions.new({
       auth_file: @auth_file,
       ga_profile_id: @ga_profile_id ,
       start_date: @start_date,
       end_date: @end_date,
       output: @output,
-      google_parent_id: @google_parent_id
+      google_parent_id: @google_parent_id,
+      dimension_data: data_for_dimensions(),
     })
 
     report_generator.generate_report!
+  end
+
+  def data_for_dimensions()
+    @dimensions.map { |dimension| {name: dimension}.merge(CONFIG[:reportable_dimensions][dimension]) }
   end
 
 private
@@ -62,4 +67,22 @@ private
       return true
     end
   end
+
+  def dimensions_valid?
+    dimensions.each do |dimension|
+      unless CONFIG[:reportable_dimensions].has_key?(dimension)
+        @errors << "'#{dimension}' is not implemented in configuration file config/app.rb"
+        next
+      end
+      config_for_dimension_valid?(dimension)
+    end
+  end
+
+  def config_for_dimension_valid?(dimension)
+    dimension_config = CONFIG[:reportable_dimensions][dimension]
+    unless dimension_config.has_key?(:events) and dimension_config.has_key?(:ga_index)
+      @errors << "'#{dimension}' in config does not have both :events and a :ga_index'"
+    end
+  end
+
 end

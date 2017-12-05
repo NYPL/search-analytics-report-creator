@@ -211,7 +211,10 @@ private
 
   def get_event_rows(event_type, start_index = 1, response_rows = [])
     response = analytics_client.get_ga_data(@ga_profile_id, @start_date, @end_date, 'ga:totalEvents,ga:uniqueEvents,ga:avgEventValue', dimensions: "ga:eventLabel,ga:eventAction,#{ga_dimensions_string_for_event_type(event_type)}", max_results: 10000, filters: "ga:eventCategory==Search;ga:eventAction==#{event_type}", sort: "ga:eventLabel", start_index: start_index)
-    @logger.info("Paginated find: #{response_rows.length + response.rows.length} of #{response.total_results} #{event_type} events")
+    @logger.info("Paginated find: #{response_rows.length + (response.rows or []).length} of #{response.total_results} #{event_type} events")
+    
+    return [] if response.total_results == 0
+
     # This is the last iteration, add these rows and return
     if !response.next_link
       response_rows.concat(response.rows)

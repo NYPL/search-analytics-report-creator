@@ -6,6 +6,7 @@ require File.join(__dir__, '..', '..', 'config', 'app')
 
 class SearchTermByDimensions
   attr_accessor :queries, :clicks, :dimension_data
+  attr_reader :csv_headers
 
   def initialize(options = {})
     @google_api_client  = GoogleApiClient.new(auth_file: options[:auth_file])
@@ -14,9 +15,10 @@ class SearchTermByDimensions
     @end_date      = options[:end_date]
     @output        = options[:output]
     @google_parent_id = options[:google_parent_id]
-    @dimension_data = options[:dimension_data]
+    @dimension_data = options[:dimension_data] || []
     @queries       = []
     @clicks        = []
+    @csv_headers   = _csv_headers
     @logger = JsonLogger.new.logger
   end
 
@@ -111,8 +113,7 @@ class SearchTermByDimensions
     all_results = results_for_terms(sorted_query_terms)
     
     CSV.open(report_output_path, 'wb') do |csv|
-      headers = ['Search Term', 'Row Number', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
-      csv << headers
+      csv << csv_headers
       all_results.each_with_index { |row, i| csv << row.insert(1, i+1) }
     end
 
@@ -232,6 +233,12 @@ private
 
   def get_query_rows
     get_event_rows(QUERY_SENT)
+  end
+
+  def _csv_headers
+    headers = ['Search Term', 'Row Number']
+    headers.concat(@dimension_data.map { |h| h[:title] })
+    headers.concat(['Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality'])
   end
 
 end 

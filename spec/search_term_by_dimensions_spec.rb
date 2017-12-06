@@ -98,5 +98,18 @@ describe SearchTermByDimensions do
 
   end
 
+  describe "csv_headers" do
+    it "will produce a set of column headings for the CSV file" do
+      report = SearchTermByDimensions.new(
+        auth_file: path_to_auth, 
+        dimension_data: [{title: 'First Dimension'}, {title: 'Second'}, {title: 'Third'}]
+      )
+      expect(report.csv_headers).to eql([
+        'Search Term', 'Row Number', 
+        'First Dimension', 'Second', 'Third',
+        'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality',
+      ])
+    end
+  end
 end
 

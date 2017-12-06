@@ -111,7 +111,7 @@ class SearchTermByDimensions
     all_results = results_for_terms(sorted_query_terms)
     
     CSV.open(report_output_path, 'wb') do |csv|
-      headers = ['search term', 'searched repo', 'searched from', 'total searches', 'total clicks', 'ctr', 'wctr', 'mean ordinality']
+      headers = ['Search Term', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
       csv << headers
       all_results.each { |row| csv << row }
     end

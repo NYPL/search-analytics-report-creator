@@ -111,9 +111,9 @@ class SearchTermByDimensions
     all_results = results_for_terms(sorted_query_terms)
     
     CSV.open(report_output_path, 'wb') do |csv|
-      headers = ['search term', 'searched repo', 'searched from', 'total searches', 'total clicks', 'ctr', 'wctr', 'mean ordinality']
+      headers = ['Search Term', 'Row Number', 'Searched Repo', 'Searched From', 'Total Searches', 'Total Clicks', 'CTR', 'WCTR', 'Mean Ordinality']
       csv << headers
-      all_results.each { |row| csv << row }
+      all_results.each_with_index { |row, i| csv << row.insert(1, i+1) }
     end
 
     if @output == "google-sheets"
@@ -146,7 +146,7 @@ class SearchTermByDimensions
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
-              '1': {
+              '2': {
                 hidden_values: ['Encore', 'DrupalSearch', 'BetaSearch']
               }
             }
@@ -159,10 +159,10 @@ class SearchTermByDimensions
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
-              '1': {
+              '2': {
                 hidden_values: ['ALL', 'DrupalSearch', 'BetaSearch']
               },
-              '2': {
+              '3': {
                 hidden_values: ['ALL', 'Unknown']
               }
             }
@@ -175,10 +175,10 @@ class SearchTermByDimensions
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
-              '1': {
+              '2': {
                 hidden_values: ['ALL']
               },
-              '2': {
+              '3': {
                 hidden_values: ['ALL', 'EncoreSearchForm', 'Unknown']
               }
             }
@@ -191,7 +191,7 @@ class SearchTermByDimensions
               sheet_id: spreadsheet.sheets[0].properties.sheet_id
             },
             criteria: {
-              '2': {
+              '3': {
                 hidden_values: ['ALL', 'HeaderSearch', 'EncoreSearchForm']
               }
             }

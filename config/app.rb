@@ -13,5 +13,9 @@ CONFIG = {
       ga_index: 2,
       events: [QUERY_SENT, CLICKTHROUGH]
     },
+    click_target: {
+      ga_index: 3,
+      events: [CLICKTHROUGH]
+    }
   },
 }

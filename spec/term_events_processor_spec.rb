@@ -19,7 +19,9 @@ describe TermEventsProcessor do
       QueryResponse.new(dimensions: {searched_repo: 'repo3', searched_from: 'from3'}, total_events: 122),
     ]
 
-    @events_processor = TermEventsProcessor.new(click_segments: clickthrough_segments, query_segments: query_segments, term: 'arbitrary', dimensions: [:searched_repo, :searched_from])
+    query_dimensions = [:searched_repo, :searched_from]
+    @events_processor = TermEventsProcessor.new(click_segments: clickthrough_segments, query_segments: query_segments, term: 'arbitrary', dimensions: query_dimensions, query_sent_dimensions: query_dimensions)
+    @events_processor_with_click_target = TermEventsProcessor.new(click_segments: clickthrough_segments, query_segments: query_segments, term: 'arbitrary', dimensions: [:searched_repo, :searched_from, :click_target], query_sent_dimensions: query_dimensions)
   end
 
   describe "ordinality" do
@@ -34,7 +36,6 @@ describe TermEventsProcessor do
   end
 
   describe "get_values" do
-
     it "will return a list of values for a given dimension" do
       expect(@events_processor.get_values(:searched_repo)).to eql(["repo1", "repo2", "repo3"])
     end
@@ -58,11 +59,12 @@ describe TermEventsProcessor do
     it "will also work for query_segments" do
       expect(@events_processor.segments_for_values(:query_segments, {searched_repo: 'repo3', searched_from: 'from3'})).to eql(@events_processor.query_segments[4..4])
     end
-     
+    it "query_segments with dimensions not relevant to QuerySent no events will be returned" do
+      expect(@events_processor.segments_for_values(:query_segments, {searched_repo: 'repo3', searched_from: 'from3', click_target: 'targetZ'})).to eql([]) 
+    end
   end
 
   describe "data_row_for_values" do
-
     it "will return an array summarizing data from single matching segment" do
       result_row = @events_processor.data_row_for_values({searched_repo: 'repo3', 'searched_from': 'from3'})
       expect(result_row).to eql(['arbitrary', 'repo3', 'from3', 122, 100, 0.82, 0.0067, 2.0])
@@ -88,6 +90,9 @@ describe TermEventsProcessor do
       expect(@events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from1'})).to be(nil)
     end
 
+    it "will return results when click-event specific dimensions are included" do
+      expect(@events_processor_with_click_target.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from4', click_target: 'targetA'})).to eql(['arbitrary', 'repo1', 'from4', 'targetA', nil, 10, nil, nil, 3.0])
+    end
   end
   
   describe "process_data_for_dimensions" do
@@ -122,11 +127,26 @@ describe TermEventsProcessor do
       ])
     end
 
+    it "can handle dimensions which are specific for clickthroughs" do
+      report_array = @events_processor_with_click_target.process_data_for_dimensions([:click_target], values: {searched_repo: 'repo2', 'searched_from': 'from1'})
+      expect(report_array).to eql([['arbitrary', 'repo2', 'from1', 'ALL', 1, 0, 0.00, 0.0000, 0.0]])
+    end
+
+    it "will report on queries where there are no clicks" do
+      query_segments = [
+        QueryResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'from2'}, total_events: 3),
+      ]
+      @events_processor = TermEventsProcessor.new(click_segments: [], query_segments: query_segments, term: 'arbitrary', dimensions: [:searched_repo, :searched_from, :click_target], query_sent_dimensions: [:searched_repo, :searched_from])
+
+      expect(@events_processor.process_data_for_dimensions([:click_target], values: {searched_repo: 'repo1', searched_from: 'from2'})).to eql([['arbitrary', 'repo1', 'from2', nil, 3, 0, 0.00, 0.0000, 0.0], ['arbitrary', 'repo1', 'from2', 'ALL', 3, 0, 0.00, 0.0000, 0.0]])
+
+    end
   end
 
   describe "calculate_aggregates_for_dimension" do
     let(:events_processor) {
-      TermEventsProcessor.new(click_segments: [], query_segments: [], term: 'xx', dimensions: [:dim1, :dim2, :dim3])
+      dimensions = [:dim1, :dim2, :dim3] 
+      TermEventsProcessor.new(click_segments: [], query_segments: [], term: 'xx', dimensions: dimensions, query_sent_dimensions: dimensions)
     }
     
     it "will sum values for a specific dimension" do

@@ -1,4 +1,6 @@
 require 'date'
+require 'set'
+
 require File.join(__dir__, '..', 'google_api_client')
 require File.join(File.absolute_path(__dir__), '..', 'json_logger')
 
@@ -56,7 +58,7 @@ class SearchTermByDimensions
       clicks << ClickResponse.new({
         search_term: click_row.shift,
         action: click_row.shift,
-        dimensions: dimensions_for_query_sent.map {|dim| [dim[:name], click_row.shift]}.to_h,
+        dimensions: dimensions_for_clickthrough.map {|dim| [dim[:name], click_row.shift]}.to_h,
         total_events: click_row.shift.to_i,
         unique_events: click_row.shift.to_i,
         mean_ordinality: click_row.shift.to_f,
@@ -85,7 +87,8 @@ class SearchTermByDimensions
       term: term, 
       dimensions: @dimension_data.map {|dim| dim[:name]},
       query_segments: query_events_for_term(term), 
-      click_segments: click_events_for_term(term)
+      click_segments: click_events_for_term(term),
+      query_sent_dimensions: dimensions_for_query_sent,
     )
     events_processor.process
   end
@@ -244,14 +247,16 @@ private
 end 
 
 class TermEventsProcessor
-  attr_accessor :term, :query_segments, :click_segments, :dimensions
+  attr_accessor :term, :query_segments, :click_segments, :dimensions, :query_sent_dimensions
 
-  def initialize(term:, dimensions:, query_segments:, click_segments:)
+  def initialize(term:, dimensions:, query_segments:, click_segments:, query_sent_dimensions:)
 
     @term = term
     @query_segments = query_segments
     @click_segments = click_segments
     @dimensions = dimensions
+    @query_sent_dimensions = query_sent_dimensions
+
   end
 
   def process
@@ -261,6 +266,7 @@ class TermEventsProcessor
   def process_data_for_dimensions(dimensions, values: {})
     # Recursively find all permutations of values from requested report dimensions, 
     #   and, once all dimensions are specified, return a results row for those values
+
     return [data_row_for_values(values)] if dimensions.empty?
 
     # For the next dimension
@@ -295,10 +301,12 @@ class TermEventsProcessor
     # An example would be
     #   ['banana', 'Encore', 'ALL', 17, 8, 0.47, 0.0277, 3.8]
 
+    return nil if rows.empty?
+
     # Start creating the results row for the aggregate values
     aggregate_row = [term]
     # Add dimension values to the row; dimension up to the aggregate dimension will
-    #   use value in values has; aggregate dimension and all subsequent will be 'ALL'
+    #   use value in values variable; aggregate dimension and all subsequent will be 'ALL'
     aggregate_row.concat(@dimensions.map {|dim| values[dim] or 'ALL'})
 
     rows_to_aggregate = matching_rows_to_aggregate(dimension, aggregate_row[1..-1], rows)
@@ -348,7 +356,10 @@ class TermEventsProcessor
   
   def get_values(dimension)
     # return all available values for the given dimension
-    (click_segments.map {|segment| segment.dimensions[dimension]} + query_segments.map {|segment| segment.dimensions[dimension]}).uniq.sort
+    (
+      click_segments.map {|segment| segment.dimensions[dimension]}.compact + 
+      query_segments.map {|segment| segment.dimensions[dimension]}.compact
+    ).uniq.sort_by(&:to_s)
   end
 
   def segments_for_values(segment_type, values)
@@ -369,23 +380,26 @@ class TermEventsProcessor
 
     return nil if matching_query_segments.empty? and matching_click_segments.empty?
 
+    # If these values include non-query_sent dimensions total_queries should be nil
+    total_queries = 
+      values.keys.to_set < query_sent_dimensions.to_set ? 
+      matching_query_segments.inject(0) { |sum, segment| sum += segment.total_events } :
+      nil
+    total_clicks = matching_click_segments.inject(0) { |sum, segment| sum += segment.total_events }
+
     row = []
     row << term
 
     row.concat dimensions.map { |dimension| values[dimension] }
     
-    total_queries = matching_query_segments.inject(0) { |sum, segment| sum += segment.total_events }
     row << total_queries
-
-    total_clicks = matching_click_segments.inject(0) { |sum, segment| sum += segment.total_events }
     row << total_clicks
 
     # Will enter nil if total_queries is 0
-    row << ((total_clicks.to_f / total_queries).round(2) if total_queries > 0)
-    row << ((total_clicks.to_f / total_queries / total_queries).round(4) if total_queries > 0)
+    row << ((total_clicks.to_f / total_queries).round(2) if total_queries.to_i > 0)
+    row << ((total_clicks.to_f / total_queries / total_queries).round(4) if total_queries.to_i > 0)
     
     row << (self.class.mean_ordinality_over_segments(matching_click_segments.map {|segment| [segment.total_events, segment.mean_ordinality]})).round(1)
-
   end
 
   def self.mean_ordinality_over_segments(click_ordinality_arrays)

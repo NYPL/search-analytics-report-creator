@@ -138,114 +138,114 @@ describe TermEventsProcessor do
       ]
       @events_processor = TermEventsProcessor.new(click_segments: [], query_segments: query_segments, term: 'arbitrary', dimensions: [:searched_repo, :searched_from, :click_target], query_sent_dimensions: [:searched_repo, :searched_from])
 
-      expect(@events_processor.process_data_for_dimensions([:click_target], values: {searched_repo: 'repo1', searched_from: 'from2'})).to eql([['arbitrary', 'repo1', 'from2', nil, 3, 0, 0.00, 0.0000, 0.0], ['arbitrary', 'repo1', 'from2', 'ALL', 3, 0, 0.00, 0.0000, 0.0]])
+      expect(@events_processor.process_data_for_dimensions([:click_target], values: {searched_repo: 'repo1', searched_from: 'from2'})).to eql([['arbitrary', 'repo1', 'from2', 'ALL', 3, 0, 0.00, 0.0000, 0.0]])
 
     end
   end
 
-  describe "calculate_aggregates_for_dimension" do
-    let(:events_processor) {
-      dimensions = [:dim1, :dim2, :dim3] 
-      TermEventsProcessor.new(click_segments: [], query_segments: [], term: 'xx', dimensions: dimensions, query_sent_dimensions: dimensions)
-    }
-    
-    it "will sum values for a specific dimension" do
-      segment_rows = [
-        ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-        ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-        ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-      ]
-     
-
-      events_processor.calculate_aggregates_for_dimension!(:dim3, {dim1: 'dim1_a', dim2: 'dim2_a'}, segment_rows)
-      expect(segment_rows).to eql(
-        [
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-          ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-        ]
-      )
-    end
-
-    it "will sum the next dimension of a partially aggregated data set" do
-
-      segment_rows = [
-        ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-        ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-        ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-        ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-        ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-        ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-        ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-        ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-      ]
-
-      events_processor.calculate_aggregates_for_dimension!(:dim2, {dim1: 'dim1_a'}, segment_rows)
-      expect(segment_rows).to eql(
-        [
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-          ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-          ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-          ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
-        ]
-      )
-
-    end
-    it "will sum the next dimension of a partially aggregated data set" do
-
-      segment_rows = [
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-          ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-          ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-          ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
-          ['xx', 'dim1_b', 'dim2_a', 'dim3_a', 30, 9, 0.30, 0.0100, 10.0],
-          ['xx', 'dim1_b', 'dim2_a', 'dim3_b', 10, 9, 0.90, 0.0900, 2.0],
-          ['xx', 'dim1_b', 'dim2_a', 'dim3_c', 20, 9, 0.45, 0.0023, 3.6],
-          ['xx', 'dim1_b', 'dim2_a', 'ALL', 60, 27, 0.45, 0.0075, 5.2],
-          ['xx', 'dim1_b', 'dim2_b', 'dim3_a', 60, 40, 0.67, 0.0111, 10.0],
-          ['xx', 'dim1_b', 'dim2_b', 'dim3_b', 30, 20, 0.67, 0.0222, 2.0],
-          ['xx', 'dim1_b', 'dim2_b', 'dim3_c', 10, 5, 0.50, 0.0500, 3.6],
-          ["xx", "dim1_b", "dim2_b", "ALL", 100, 65, 0.65, 0.0007, 7.0],
-          ["xx", "dim1_b", "ALL", "ALL", 160, 92, 0.58, 0.0036, 6.5],
-         ]
-
-      events_processor.calculate_aggregates_for_dimension!(:dim1, {}, segment_rows)
-      expect(segment_rows).to eql(
-        [
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-          ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-          ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-          ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-          ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-          ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
-          ['xx', 'dim1_b', 'dim2_a', 'dim3_a', 30, 9, 0.30, 0.0100, 10.0],
-          ['xx', 'dim1_b', 'dim2_a', 'dim3_b', 10, 9, 0.90, 0.0900, 2.0],
-          ['xx', 'dim1_b', 'dim2_a', 'dim3_c', 20, 9, 0.45, 0.0023, 3.6],
-          ['xx', 'dim1_b', 'dim2_a', 'ALL', 60, 27, 0.45, 0.0075, 5.2],
-          ['xx', 'dim1_b', 'dim2_b', 'dim3_a', 60, 40, 0.67, 0.0111, 10.0],
-          ['xx', 'dim1_b', 'dim2_b', 'dim3_b', 30, 20, 0.67, 0.0222, 2.0],
-          ['xx', 'dim1_b', 'dim2_b', 'dim3_c', 10, 5, 0.50, 0.0500, 3.6],
-          ["xx", "dim1_b", "dim2_b", "ALL", 100, 65, 0.65, 0.0007, 7.0],
-          ["xx", "dim1_b", "ALL", "ALL", 160, 92, 0.58, 0.0036, 6.5],
-          ["xx", "ALL", "ALL", "ALL", 310, 119, 0.38, 0.0012, 6.4],
-         ]
-      )
-
-    end
- 
-  end
+  # describe "calculate_aggregates_for_dimension" do
+  #   let(:events_processor) {
+  #     dimensions = [:dim1, :dim2, :dim3] 
+  #     TermEventsProcessor.new(click_segments: [], query_segments: [], term: 'xx', dimensions: dimensions, query_sent_dimensions: dimensions)
+  #   }
+  #   
+  #   it "will sum values for a specific dimension" do
+  #     segment_rows = [
+  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+  #     ]
+  #    
+  #
+  #     events_processor.calculate_aggregates_for_dimension!(:dim3, {dim1: 'dim1_a', dim2: 'dim2_a'}, segment_rows)
+  #     expect(segment_rows).to eql(
+  #       [
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
+  #       ]
+  #     )
+  #   end
+  #
+  #   it "will sum the next dimension of a partially aggregated data set" do
+  #
+  #     segment_rows = [
+  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+  #       ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
+  #       ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
+  #       ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
+  #       ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
+  #       ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
+  #     ]
+  #
+  #     events_processor.calculate_aggregates_for_dimension!(:dim2, {dim1: 'dim1_a'}, segment_rows)
+  #     expect(segment_rows).to eql(
+  #       [
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
+  #         ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
+  #         ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
+  #       ]
+  #     )
+  #
+  #   end
+  #   it "will sum the next dimension of a partially aggregated data set" do
+  #
+  #     segment_rows = [
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
+  #         ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
+  #         ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
+  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_a', 30, 9, 0.30, 0.0100, 10.0],
+  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_b', 10, 9, 0.90, 0.0900, 2.0],
+  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_c', 20, 9, 0.45, 0.0023, 3.6],
+  #         ['xx', 'dim1_b', 'dim2_a', 'ALL', 60, 27, 0.45, 0.0075, 5.2],
+  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_a', 60, 40, 0.67, 0.0111, 10.0],
+  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_b', 30, 20, 0.67, 0.0222, 2.0],
+  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_c', 10, 5, 0.50, 0.0500, 3.6],
+  #         ["xx", "dim1_b", "dim2_b", "ALL", 100, 65, 0.65, 0.0007, 7.0],
+  #         ["xx", "dim1_b", "ALL", "ALL", 160, 92, 0.58, 0.0036, 6.5],
+  #        ]
+  #
+  #     events_processor.calculate_aggregates_for_dimension!(:dim1, {}, segment_rows)
+  #     expect(segment_rows).to eql(
+  #       [
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
+  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
+  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
+  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
+  #         ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
+  #         ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
+  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_a', 30, 9, 0.30, 0.0100, 10.0],
+  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_b', 10, 9, 0.90, 0.0900, 2.0],
+  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_c', 20, 9, 0.45, 0.0023, 3.6],
+  #         ['xx', 'dim1_b', 'dim2_a', 'ALL', 60, 27, 0.45, 0.0075, 5.2],
+  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_a', 60, 40, 0.67, 0.0111, 10.0],
+  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_b', 30, 20, 0.67, 0.0222, 2.0],
+  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_c', 10, 5, 0.50, 0.0500, 3.6],
+  #         ["xx", "dim1_b", "dim2_b", "ALL", 100, 65, 0.65, 0.0007, 7.0],
+  #         ["xx", "dim1_b", "ALL", "ALL", 160, 92, 0.58, 0.0036, 6.5],
+  #         ["xx", "ALL", "ALL", "ALL", 310, 119, 0.38, 0.0012, 6.4],
+  #        ]
+  #     )
+  #
+  #   end
+  #
+  # end
 end

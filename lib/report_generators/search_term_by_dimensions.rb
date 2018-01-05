@@ -88,7 +88,7 @@ class SearchTermByDimensions
       dimensions: @dimension_data.map {|dim| dim[:name]},
       query_segments: query_events_for_term(term), 
       click_segments: click_events_for_term(term),
-      query_sent_dimensions: dimensions_for_query_sent,
+      query_sent_dimensions: dimensions_for_query_sent.map {|dim| dim[:name]},
     )
     events_processor.process
   end
@@ -285,12 +285,18 @@ class TermEventsProcessor
     end
 
     # Calculate the aggregate values for the dimension just iterated over
-    calculate_aggregates_for_dimension!(this_dimension, values, event_rows)
-    event_rows
+    this_dimension_index = @dimensions.index this_dimension
+    values_for_aggregation = @dimensions.map { |dim|
+      @dimensions.index(dim) < this_dimension_index ?
+        [dim, values[dim]] :
+        [dim, 'ALL']
+    }.to_h
+
+    event_rows << data_row_for_values(values_for_aggregation)
 
   end
 
-  def calculate_aggregates_for_dimension!(dimension, values, rows)
+  def calculate_aggregates_for_dimension(dimension, values)
     # Take the result rows, and the dimension values used to calculate them,
     #   and calculate aggregate totals for the given dimension. All subsequent
     #   dimensions (i.e., those after the specified dimension in the @dimensions 
@@ -311,7 +317,7 @@ class TermEventsProcessor
 
     rows_to_aggregate = matching_rows_to_aggregate(dimension, aggregate_row[1..-1], rows)
 
-   # Now calculate the regular values
+    # Now calculate the regular values
     total_queries_index = dimensions.length + 1
     total_clicks_index = total_queries_index + 1
     aggregates = rows_to_aggregate.inject({total_queries: 0, total_clicks: 0}) { |agg, row|
@@ -367,7 +373,7 @@ class TermEventsProcessor
     self.send(segment_type).find_all do |segment|
       # return all segments which match the appropriate values
       values.each_pair.all? do |dimension, value|
-        segment.dimensions[dimension] == value
+        value == 'ALL' or segment.dimensions[dimension] == value
       end
     end
   end
@@ -380,9 +386,10 @@ class TermEventsProcessor
 
     return nil if matching_query_segments.empty? and matching_click_segments.empty?
 
-    # If these values include non-query_sent dimensions total_queries should be nil
+    # If the non-aggregated dimension values include non-query_sent dimensions total_queries should be nil
+    non_aggregated_dimensions = values.keys.reject {|dim| values[dim] == 'ALL'}
     total_queries = 
-      values.keys.to_set < query_sent_dimensions.to_set ? 
+      non_aggregated_dimensions.to_set.subset?(query_sent_dimensions.to_set) ? 
       matching_query_segments.inject(0) { |sum, segment| sum += segment.total_events } :
       nil
     total_clicks = matching_click_segments.inject(0) { |sum, segment| sum += segment.total_events }

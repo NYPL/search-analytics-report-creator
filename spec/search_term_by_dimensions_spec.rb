@@ -66,7 +66,7 @@ describe SearchTermByDimensions do
         ['Best Books 2017', 'Encore', 'EncoreSearchForm', 2, 0, 0.0, 0.000, 0.0],
         ['Best Books 2017', 'Encore', 'HeaderSearch', 6, 1, 0.17, 0.0278, 4.0],
         ['Best Books 2017', 'Encore', 'ALL', 8, 1, 0.13, 0.0156, 4.0],
-        ['Best Books 2017', 'ALL', 'ALL', 84, 64, 0.76, 0.0091, 2.7],
+        ['Best Books 2017', 'ALL', 'ALL', 84, 64, 0.76, 0.0091, 2.8],
         ['Boney M', 'DrupalSearch', 'DrupalSearchForm', 1, 0, 0.0, 0.000, 0.0],
         ['Boney M', 'DrupalSearch', 'HeaderSearch', 2, 0, 0.0, 0.000, 0.0],
         ['Boney M', 'DrupalSearch', 'ALL', 3, 0, 0.0, 0.000, 0.0],

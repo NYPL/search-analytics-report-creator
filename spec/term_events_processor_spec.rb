@@ -66,39 +66,56 @@ describe TermEventsProcessor do
 
   describe "data_row_for_values" do
     it "will return an array summarizing data from single matching segment" do
-      result_row = @events_processor.data_row_for_values({searched_repo: 'repo3', 'searched_from': 'from3'})
+      result_row = @events_processor.data_row_for_values({searched_repo: 'repo3', searched_from: 'from3'})
       expect(result_row).to eql(['arbitrary', 'repo3', 'from3', 122, 100, 0.82, 0.0067, 2.0])
     end
 
     it "will return a single array even if there are mutliple segments matching the specified values" do
-      result_row = @events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from4'})
+      result_row = @events_processor.data_row_for_values({searched_repo: 'repo1', searched_from: 'from4'})
       expect(result_row).to eql(['arbitrary', 'repo1', 'from4', 30, 11, 0.37, 0.0122, 3.6])
     end
 
     it "will return appropriate values if we have clickthrough events but no queries" do
       @events_processor.click_segments << ClickResponse.new(dimensions: {searched_repo: 'repo1', searched_from: 'unwired_form'}, total_events: 5, mean_ordinality: 2.0)
-      result_row = @events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'unwired_form'})
+      result_row = @events_processor.data_row_for_values({searched_repo: 'repo1', searched_from: 'unwired_form'})
       expect(result_row).to eql(['arbitrary', 'repo1', 'unwired_form', 0, 5, nil, nil, 2.0])
     end
 
     it "will return appropriate values if we have query events but no clickthroughs" do
-      result_row = @events_processor.data_row_for_values({searched_repo: 'repo2', 'searched_from': 'from1'})
+      result_row = @events_processor.data_row_for_values({searched_repo: 'repo2', searched_from: 'from1'})
       expect(result_row).to eql(['arbitrary', 'repo2', 'from1', 1, 0, 0.00, 0.0000, 0.0])
     end
 
     it "will return nil if no click or query segments match the specified values" do
-      expect(@events_processor.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from1'})).to be(nil)
+      expect(@events_processor.data_row_for_values({searched_repo: 'repo1', searched_from: 'from1'})).to be(nil)
     end
 
-    it "will return results when click-event specific dimensions are included" do
-      expect(@events_processor_with_click_target.data_row_for_values({searched_repo: 'repo1', 'searched_from': 'from4', click_target: 'targetA'})).to eql(['arbitrary', 'repo1', 'from4', 'targetA', nil, 10, nil, nil, 3.0])
+    it "will return no query-sent data when clickthrough-only dimensions are included" do
+      expect(@events_processor_with_click_target.data_row_for_values({searched_repo: 'repo1', searched_from: 'from4', click_target: 'targetA'})).to eql(['arbitrary', 'repo1', 'from4', 'targetA', nil, 10, nil, nil, 3.0])
     end
+
+    it "will aggregate results when a dimension value of 'ALL' is passed in" do
+      expect(@events_processor.data_row_for_values({searched_repo: 'repo1', searched_from: 'ALL'})).to eql(['arbitrary', 'repo1', 'ALL', 163, 112, 0.69, 0.0042, 2.2])
+    end
+
+    it "will aggregate over a clickthrough-only dimension if value of 'ALL' is passed in" do
+      expect(@events_processor_with_click_target.data_row_for_values({searched_repo: 'repo1', searched_from: 'from4', click_target: 'ALL'})).to eql(['arbitrary', 'repo1', 'from4', 'ALL', 30, 11, 0.37, 0.0122, 3.6])
+    end
+
+    it "will return no query-sent data when clickthrough-only dimensions are included even if aggregating" do
+      expect(@events_processor_with_click_target.data_row_for_values({searched_repo: 'repo1', searched_from: 'ALL', click_target: 'targetZ'})).to eql(['arbitrary', 'repo1', 'ALL', 'targetZ', nil, 2, nil, nil, 10.0])
+    end
+
+    it "can aggregate on higher dimensions (though nobody should wanna do this)" do
+      expect(@events_processor.data_row_for_values({searched_repo: 'ALL', searched_from: 'from3'})).to eql(['arbitrary', 'ALL', 'from3', 252, 200, 0.79, 0.0031, 2.0])
+    end
+
   end
   
   describe "process_data_for_dimensions" do
 
     it "will return output of `data_row_for_values` if no dimensions are specified" do
-      report_array = @events_processor.process_data_for_dimensions([], values: {searched_repo: 'repo3', 'searched_from': 'from3'}) 
+      report_array = @events_processor.process_data_for_dimensions([], values: {searched_repo: 'repo3', searched_from: 'from3'}) 
       expect(report_array).to eql([['arbitrary', 'repo3', 'from3', 122, 100, 0.82, 0.0067, 2.0]])
     end
 
@@ -128,7 +145,7 @@ describe TermEventsProcessor do
     end
 
     it "can handle dimensions which are specific for clickthroughs" do
-      report_array = @events_processor_with_click_target.process_data_for_dimensions([:click_target], values: {searched_repo: 'repo2', 'searched_from': 'from1'})
+      report_array = @events_processor_with_click_target.process_data_for_dimensions([:click_target], values: {searched_repo: 'repo2', searched_from: 'from1'})
       expect(report_array).to eql([['arbitrary', 'repo2', 'from1', 'ALL', 1, 0, 0.00, 0.0000, 0.0]])
     end
 
@@ -143,109 +160,4 @@ describe TermEventsProcessor do
     end
   end
 
-  # describe "calculate_aggregates_for_dimension" do
-  #   let(:events_processor) {
-  #     dimensions = [:dim1, :dim2, :dim3] 
-  #     TermEventsProcessor.new(click_segments: [], query_segments: [], term: 'xx', dimensions: dimensions, query_sent_dimensions: dimensions)
-  #   }
-  #   
-  #   it "will sum values for a specific dimension" do
-  #     segment_rows = [
-  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-  #     ]
-  #    
-  #
-  #     events_processor.calculate_aggregates_for_dimension!(:dim3, {dim1: 'dim1_a', dim2: 'dim2_a'}, segment_rows)
-  #     expect(segment_rows).to eql(
-  #       [
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-  #       ]
-  #     )
-  #   end
-  #
-  #   it "will sum the next dimension of a partially aggregated data set" do
-  #
-  #     segment_rows = [
-  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-  #       ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-  #       ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-  #       ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-  #       ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-  #       ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-  #       ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-  #     ]
-  #
-  #     events_processor.calculate_aggregates_for_dimension!(:dim2, {dim1: 'dim1_a'}, segment_rows)
-  #     expect(segment_rows).to eql(
-  #       [
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-  #         ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-  #         ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
-  #       ]
-  #     )
-  #
-  #   end
-  #   it "will sum the next dimension of a partially aggregated data set" do
-  #
-  #     segment_rows = [
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-  #         ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-  #         ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
-  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_a', 30, 9, 0.30, 0.0100, 10.0],
-  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_b', 10, 9, 0.90, 0.0900, 2.0],
-  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_c', 20, 9, 0.45, 0.0023, 3.6],
-  #         ['xx', 'dim1_b', 'dim2_a', 'ALL', 60, 27, 0.45, 0.0075, 5.2],
-  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_a', 60, 40, 0.67, 0.0111, 10.0],
-  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_b', 30, 20, 0.67, 0.0222, 2.0],
-  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_c', 10, 5, 0.50, 0.0500, 3.6],
-  #         ["xx", "dim1_b", "dim2_b", "ALL", 100, 65, 0.65, 0.0007, 7.0],
-  #         ["xx", "dim1_b", "ALL", "ALL", 160, 92, 0.58, 0.0036, 6.5],
-  #        ]
-  #
-  #     events_processor.calculate_aggregates_for_dimension!(:dim1, {}, segment_rows)
-  #     expect(segment_rows).to eql(
-  #       [
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_a', 10, 6, 0.33, 0.1111, 10.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_b', 20, 4, 0.77, 0.0059, 2.0],
-  #         ['xx', 'dim1_a', 'dim2_a', 'dim3_c', 30, 2, 0.37, 0.0122, 3.6],
-  #         ['xx', 'dim1_a', 'dim2_a', 'ALL', 60, 12, 0.20, 0.0033, 6.3],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_a', 20, 7, 0.35, 0.0175, 10.0],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_b', 30, 5, 0.17, 0.0056, 2.0],
-  #         ['xx', 'dim1_a', 'dim2_b', 'dim3_c', 40, 3, 0.08, 0.0019, 3.6],
-  #         ["xx", "dim1_a", "dim2_b", "ALL", 90, 15, 0.17, 0.0019, 6.1],
-  #         ["xx", "dim1_a", "ALL", "ALL", 150, 27, 0.18, 0.0012, 6.2],
-  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_a', 30, 9, 0.30, 0.0100, 10.0],
-  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_b', 10, 9, 0.90, 0.0900, 2.0],
-  #         ['xx', 'dim1_b', 'dim2_a', 'dim3_c', 20, 9, 0.45, 0.0023, 3.6],
-  #         ['xx', 'dim1_b', 'dim2_a', 'ALL', 60, 27, 0.45, 0.0075, 5.2],
-  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_a', 60, 40, 0.67, 0.0111, 10.0],
-  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_b', 30, 20, 0.67, 0.0222, 2.0],
-  #         ['xx', 'dim1_b', 'dim2_b', 'dim3_c', 10, 5, 0.50, 0.0500, 3.6],
-  #         ["xx", "dim1_b", "dim2_b", "ALL", 100, 65, 0.65, 0.0007, 7.0],
-  #         ["xx", "dim1_b", "ALL", "ALL", 160, 92, 0.58, 0.0036, 6.5],
-  #         ["xx", "ALL", "ALL", "ALL", 310, 119, 0.38, 0.0012, 6.4],
-  #        ]
-  #     )
-  #
-  #   end
-  #
-  # end
 end

@@ -296,70 +296,6 @@ class TermEventsProcessor
 
   end
 
-  def calculate_aggregates_for_dimension(dimension, values)
-    # Take the result rows, and the dimension values used to calculate them,
-    #   and calculate aggregate totals for the given dimension. All subsequent
-    #   dimensions (i.e., those after the specified dimension in the @dimensions 
-    #   property) will be set to 'ALL'
-
-    # aggregate row will look like: 
-    #   ['search term', dimension1 ... dimensionN, query_total, click_total, ctr, wctr, mean_ordinality]
-    # An example would be
-    #   ['banana', 'Encore', 'ALL', 17, 8, 0.47, 0.0277, 3.8]
-
-    return nil if rows.empty?
-
-    # Start creating the results row for the aggregate values
-    aggregate_row = [term]
-    # Add dimension values to the row; dimension up to the aggregate dimension will
-    #   use value in values variable; aggregate dimension and all subsequent will be 'ALL'
-    aggregate_row.concat(@dimensions.map {|dim| values[dim] or 'ALL'})
-
-    rows_to_aggregate = matching_rows_to_aggregate(dimension, aggregate_row[1..-1], rows)
-
-    # Now calculate the regular values
-    total_queries_index = dimensions.length + 1
-    total_clicks_index = total_queries_index + 1
-    aggregates = rows_to_aggregate.inject({total_queries: 0, total_clicks: 0}) { |agg, row|
-      agg[:total_queries] += row[total_queries_index]
-      agg[:total_clicks] += row[total_clicks_index]
-      agg
-    }
-    
-    aggregate_row << aggregates[:total_queries]
-    aggregate_row << aggregates[:total_clicks]
-
-    if aggregates[:total_queries] > 0
-      ctr = aggregates[:total_clicks].to_f / aggregates[:total_queries]
-      aggregate_row << ctr.round(2)
-      aggregate_row << (ctr / aggregates[:total_queries]).round(4)
-    else
-      aggregate_row.concat([nil, nil])
-    end
-
-    aggregate_row << self.class.mean_ordinality_over_segments(rows_to_aggregate.map {|row| [row[total_clicks_index], row[-1]]}).round(1)
-
-    rows << aggregate_row
-    nil 
-  end
-
-  def matching_rows_to_aggregate(dimension_to_aggregate, aggregate_dimension_values, rows)
-    # Return all rows we want to aggregate over
-    dimension_to_aggregate_index = @dimensions.index dimension_to_aggregate
-    
-    # The rows we wish to aggregate must match all values in aggregate_row_dimension_values
-    #   except for the aggregate dimension 
-    rows.select { |row| 
-      this_row_dimensions = row[1, @dimensions.length]
-      this_row_dimensions.map.with_index.all? { |value, i|
-        # Accept all values of the aggregate dimension
-        next true if i == dimension_to_aggregate_index
-        # Only accept rows which have same dimension value as that we wish to aggregate
-        value == aggregate_dimension_values[i]
-      }
-    }
-  end 
-  
   def get_values(dimension)
     # return all available values for the given dimension
     (
@@ -383,7 +319,6 @@ class TermEventsProcessor
     #   total queries, clicks CTR, WCTR, mean ordinality and return row with these values
     matching_query_segments = segments_for_values(:query_segments, values)
     matching_click_segments = segments_for_values(:click_segments, values)
-
     return nil if matching_query_segments.empty? and matching_click_segments.empty?
 
     # If the non-aggregated dimension values include non-query_sent dimensions total_queries should be nil
